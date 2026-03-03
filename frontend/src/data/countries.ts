@@ -1,0 +1,21 @@
+export const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia",
+  "Australia", "Austria", "Azerbaijan", "Bahrain", "Bangladesh", "Belarus", "Belgium",
+  "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei",
+  "Bulgaria", "Cambodia", "Cameroon", "Canada", "Chile", "China", "Colombia",
+  "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Ecuador", "Egypt",
+  "Ethiopia", "Finland", "France", "Georgia", "Germany", "Ghana", "Greece",
+  "Guatemala", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran",
+  "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+  "Kenya", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Libya",
+  "Lithuania", "Luxembourg", "Malaysia", "Maldives", "Malta", "Mexico", "Moldova",
+  "Mongolia", "Morocco", "Mozambique", "Myanmar", "Nepal", "Netherlands",
+  "New Zealand", "Nigeria", "North Korea", "Norway", "Oman", "Pakistan", "Palestine",
+  "Panama", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+  "Russia", "Rwanda", "Saudi Arabia", "Serbia", "Singapore", "Slovakia", "Slovenia",
+  "Somalia", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sudan", "Sweden",
+  "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand",
+  "Tunisia", "Turkey", "Turkmenistan", "Uganda", "Ukraine", "United Arab Emirates",
+  "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Venezuela",
+  "Vietnam", "Yemen", "Zimbabwe"
+];
