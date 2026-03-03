@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import GuestDashboard from './pages/GuestDashboard';
+import VillaDetails from './pages/VillaDetails';
 import { useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -51,6 +52,17 @@ function AppContent() {
                 <RegisterPage />
               </>
             )
+          }
+        />
+
+        {/* Villa Details — public */}
+        <Route
+          path="/villas/:id"
+          element={
+            <>
+              <Navbar />
+              <VillaDetails />
+            </>
           }
         />
 

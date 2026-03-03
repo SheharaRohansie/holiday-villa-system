@@ -56,6 +56,28 @@ export interface UserResponse {
   createdAt: string;
 }
 
+// ---- Villa Types ----
+export interface VillaRequest {
+  name: string;
+  description: string;
+  pricePerNight: number | string;
+  maxGuests: number | string;
+  amenities: string[];
+  imageUrls: string[];
+}
+
+export interface Villa {
+  id: number;
+  name: string;
+  description: string;
+  pricePerNight: number;
+  maxGuests: number;
+  amenities: string[];
+  imageUrls: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthContextType {
   user: AuthResponse | null;
   login: (data: AuthResponse) => void;

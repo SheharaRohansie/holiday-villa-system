@@ -1,10 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getAllVillasApi } from '../api/villaApi';
+import type { Villa } from '../types';
+import VillaCard from '../components/VillaCard';
 import '../styles/HomePage.css';
+import '../styles/Villa.css';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
+  const [villas, setVillas] = useState<Villa[]>([]);
+
+  useEffect(() => {
+    getAllVillasApi().then(setVillas).catch(() => {});
+  }, []);
 
   return (
     <div className="home">
@@ -41,25 +50,31 @@ const HomePage: React.FC = () => {
           <h2>Our Luxury Villas</h2>
           <p>Discover your perfect seaside retreat</p>
         </div>
-        <div className="villa-grid">
-          {villaData.map((villa) => (
-            <div key={villa.id} className="villa-card">
-              <div className="villa-img-placeholder" style={{ background: villa.gradient }}>
-                <span className="villa-icon">{villa.icon}</span>
-              </div>
-              <div className="villa-info">
-                <h3>{villa.name}</h3>
-                <p>{villa.description}</p>
-                <div className="villa-footer">
-                  <span className="villa-price">{villa.price}</span>
-                  <Link to="/register" className="btn-book">
-                    {isAuthenticated ? 'Reserve' : 'Register to Book'}
-                  </Link>
+        {villas.length === 0 ? (
+          <div className="villa-grid">
+            {villaData.map((villa) => (
+              <div key={villa.id} className="villa-card">
+                <div className="villa-img-placeholder" style={{ background: villa.gradient }}>
+                  <span className="villa-icon">{villa.icon}</span>
+                </div>
+                <div className="villa-info">
+                  <h3>{villa.name}</h3>
+                  <p>{villa.description}</p>
+                  <div className="villa-footer">
+                    <span className="villa-price">{villa.price}</span>
+                    <Link to="/register" className="btn-book">
+                      {isAuthenticated ? 'Reserve' : 'Register to Book'}
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="villa-grid-live">
+            {villas.map(v => <VillaCard key={v.id} villa={v} />)}
+          </div>
+        )}
       </section>
 
       {/* Offers Section */}

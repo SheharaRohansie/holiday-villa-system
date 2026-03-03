@@ -39,6 +39,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                // Public villa read-only access (guests and unauthenticated users)
+                .requestMatchers(HttpMethod.GET, "/api/villas").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/villas/**").permitAll()
                 // Admin only
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Staff

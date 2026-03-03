@@ -2,11 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
-import type { UserResponse, CreateStaffRequest, UpdateProfileRequest } from '../types';
+import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi } from '../api/villaApi';
+import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest } from '../types';
 import { COUNTRIES } from '../data/countries';
+import VillaTable from '../components/VillaTable';
 import '../styles/Dashboard.css';
+import '../styles/Villa.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa';
+
+const emptyVillaForm = (): VillaRequest => ({
+  name: '', description: '', pricePerNight: '',
+  maxGuests: '', amenities: [], imageUrls: ['', '', ''],
+});
 
 const AdminDashboard: React.FC = () => {
   const { user, logout, login } = useAuth();
@@ -17,6 +25,12 @@ const AdminDashboard: React.FC = () => {
   const [guests, setGuests] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Villa state
+  const [villas, setVillas] = useState<Villa[]>([]);
+  const [villaForm, setVillaForm] = useState<VillaRequest>(emptyVillaForm());
+  const [villaErrors, setVillaErrors] = useState<Partial<Record<keyof VillaRequest, string>>>({});
+  const [editingVillaId, setEditingVillaId] = useState<number | null>(null);
 
   // Create Staff Form
   const [staffForm, setStaffForm] = useState<CreateStaffRequest>({
@@ -33,6 +47,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     loadAllUsers();
+    loadVillas();
   }, []);
 
   const loadAllUsers = async () => {
@@ -42,6 +57,88 @@ const AdminDashboard: React.FC = () => {
       setAllUsers(u); setStaff(s); setGuests(g);
     } catch { setMessage('Failed to load users.'); }
     finally { setLoading(false); }
+  };
+
+  const loadVillas = async () => {
+    try {
+      const data = await getAllVillasApi();
+      setVillas(data);
+    } catch { /* silent */ }
+  };
+
+  const validateVillaForm = (): boolean => {
+    const errs: Partial<Record<keyof VillaRequest, string>> = {};
+    if (!villaForm.name.trim()) errs.name = 'Villa name is required';
+    if (!villaForm.description.toString().trim()) errs.description = 'Description is required';
+    if (!villaForm.pricePerNight || Number(villaForm.pricePerNight) <= 0) errs.pricePerNight = 'Price must be positive';
+    const images = villaForm.imageUrls.filter(u => u.trim() !== '');
+    if (images.length === 0) errs.imageUrls = 'At least one image URL is required';
+    setVillaErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const buildVillaPayload = (): VillaRequest => ({
+    ...villaForm,
+    pricePerNight: Number(villaForm.pricePerNight),
+    maxGuests: villaForm.maxGuests ? Number(villaForm.maxGuests) : 0,
+    amenities: (villaForm.amenities as string[]).filter(Boolean),
+    imageUrls: villaForm.imageUrls.filter(u => u.trim() !== ''),
+  });
+
+  const handleAddVilla = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateVillaForm()) return;
+    try {
+      await addVillaApi(buildVillaPayload());
+      setMessage('Villa added successfully!');
+      setVillaForm(emptyVillaForm());
+      await loadVillas();
+      setActiveTab('villas');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to add villa.');
+    }
+  };
+
+  const handleEditVillaSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVillaId || !validateVillaForm()) return;
+    try {
+      await updateVillaApi(editingVillaId, buildVillaPayload());
+      setMessage('Villa updated successfully!');
+      setVillaForm(emptyVillaForm());
+      setEditingVillaId(null);
+      await loadVillas();
+      setActiveTab('villas');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to update villa.');
+    }
+  };
+
+  const handleDeleteVilla = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this villa?')) return;
+    try {
+      await deleteVillaApi(id);
+      setMessage('Villa deleted successfully.');
+      await loadVillas();
+    } catch { setMessage('Failed to delete villa.'); }
+  };
+
+  const startEditVilla = (villa: Villa) => {
+    setEditingVillaId(villa.id);
+    const urls = [...villa.imageUrls];
+    while (urls.length < 3) urls.push('');
+    setVillaForm({
+      name: villa.name,
+      description: villa.description,
+      pricePerNight: villa.pricePerNight,
+      maxGuests: villa.maxGuests ?? '',
+      amenities: villa.amenities,
+      imageUrls: urls,
+    });
+    setVillaErrors({});
+    setActiveTab('edit-villa');
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -124,6 +221,7 @@ const AdminDashboard: React.FC = () => {
         <nav className="sidebar-nav">
           {([
             { key: 'overview', icon: '📊', label: 'Overview' },
+            { key: 'villas', icon: '🏖️', label: 'Manage Villas' },
             { key: 'staff', icon: '👥', label: 'Staff Members' },
             { key: 'guests', icon: '🧳', label: 'Guests' },
             { key: 'create-staff', icon: '➕', label: 'Create Staff' },
@@ -157,7 +255,7 @@ const AdminDashboard: React.FC = () => {
               <div className="stat-card"><span className="stat-icon">👥</span><h3>{allUsers.length}</h3><p>Total Users</p></div>
               <div className="stat-card"><span className="stat-icon">🧑‍💼</span><h3>{staff.length}</h3><p>Staff Members</p></div>
               <div className="stat-card"><span className="stat-icon">🧳</span><h3>{guests.length}</h3><p>Guests</p></div>
-              <div className="stat-card"><span className="stat-icon">🏨</span><h3>25</h3><p>Villas Available</p></div>
+              <div className="stat-card"><span className="stat-icon">🏨</span><h3>{villas.length}</h3><p>Villas Available</p></div>
             </div>
             <div className="recent-section">
               <h3>Recent Users</h3>
@@ -179,6 +277,53 @@ const AdminDashboard: React.FC = () => {
           <div className="tab-content">
             <h2 className="tab-title">Registered Guests</h2>
             {loading ? <p>Loading...</p> : <UserTable users={guests} onDelete={handleDeleteUser} />}
+          </div>
+        )}
+
+        {/* VILLAS */}
+        {activeTab === 'villas' && (
+          <div className="tab-content">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 className="tab-title">Manage Villas</h2>
+              <button className="btn-primary-action" onClick={() => { setVillaForm(emptyVillaForm()); setVillaErrors({}); setActiveTab('add-villa'); }}>
+                ➕ Add New Villa
+              </button>
+            </div>
+            <VillaTable villas={villas} onEdit={startEditVilla} onDelete={handleDeleteVilla} />
+          </div>
+        )}
+
+        {/* ADD VILLA */}
+        {activeTab === 'add-villa' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Add New Villa</h2>
+            <div className="form-card">
+              <form onSubmit={handleAddVilla} noValidate>
+                <VillaFormFields form={villaForm} setForm={setVillaForm} errors={villaErrors} />
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-primary-action">Add Villa</button>
+                  <button type="button" className="btn-primary-action" style={{ background: '#888' }}
+                    onClick={() => setActiveTab('villas')}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT VILLA */}
+        {activeTab === 'edit-villa' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Edit Villa</h2>
+            <div className="form-card">
+              <form onSubmit={handleEditVillaSave} noValidate>
+                <VillaFormFields form={villaForm} setForm={setVillaForm} errors={villaErrors} />
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-primary-action">Update Villa</button>
+                  <button type="button" className="btn-primary-action" style={{ background: '#888' }}
+                    onClick={() => setActiveTab('villas')}>Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -278,6 +423,62 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 };
+
+const VillaFormFields: React.FC<{
+  form: VillaRequest;
+  setForm: React.Dispatch<React.SetStateAction<VillaRequest>>;
+  errors: Partial<Record<keyof VillaRequest, string>>;
+}> = ({ form, setForm, errors }) => (
+  <div className="villa-form-grid">
+    <div className="form-group">
+      <label>Villa Name *</label>
+      <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+        placeholder="e.g. Ocean Breeze Villa" className={errors.name ? 'input-error' : ''} />
+      {errors.name && <span className="field-error">{errors.name}</span>}
+    </div>
+    <div className="form-group villa-form-full">
+      <label>Description *</label>
+      <textarea rows={4} value={form.description as string}
+        onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+        placeholder="Full villa description…" className={errors.description ? 'input-error' : ''}
+        style={{ resize: 'vertical' }} />
+      {errors.description && <span className="field-error">{errors.description}</span>}
+    </div>
+    <div className="form-group">
+      <label>Price Per Night (LKR) *</label>
+      <input type="number" min={1} value={form.pricePerNight as string}
+        onChange={e => setForm(p => ({ ...p, pricePerNight: e.target.value }))}
+        placeholder="e.g. 250" className={errors.pricePerNight ? 'input-error' : ''} />
+      {errors.pricePerNight && <span className="field-error">{errors.pricePerNight}</span>}
+    </div>
+    <div className="form-group">
+      <label>Max Guests</label>
+      <input type="number" min={1} value={form.maxGuests as string}
+        onChange={e => setForm(p => ({ ...p, maxGuests: e.target.value }))}
+        placeholder="e.g. 6" />
+    </div>
+    <div className="form-group villa-form-full">
+      <label>Amenities (comma separated)</label>
+      <input value={(form.amenities as string[]).join(', ')}
+        onChange={e => setForm(p => ({ ...p, amenities: e.target.value.split(',').map(s => s.trim()) }))}
+        placeholder="e.g. Pool, WiFi, Air Conditioning, Beach Access" />
+    </div>
+    {[0, 1, 2].map(i => (
+      <div className="form-group" key={i}>
+        <label>Image URL {i + 1} {i === 0 ? '*' : '(optional)'}</label>
+        <input value={form.imageUrls[i] || ''}
+          onChange={e => setForm(p => {
+            const urls = [...p.imageUrls];
+            urls[i] = e.target.value;
+            return { ...p, imageUrls: urls };
+          })}
+          placeholder="https://example.com/image.jpg"
+          className={i === 0 && errors.imageUrls ? 'input-error' : ''} />
+        {i === 0 && errors.imageUrls && <span className="field-error">{errors.imageUrls}</span>}
+      </div>
+    ))}
+  </div>
+);
 
 const UserTable: React.FC<{ users: UserResponse[]; onDelete: (id: number) => void }> = ({ users, onDelete }) => (
   <div className="table-wrapper">

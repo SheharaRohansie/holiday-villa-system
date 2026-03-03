@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { updateProfileApi } from '../api/userApi';
-import type { UpdateProfileRequest } from '../types';
+import { getAllVillasApi } from '../api/villaApi';
+import type { UpdateProfileRequest, Villa } from '../types';
+import VillaCard from '../components/VillaCard';
 import '../styles/Dashboard.css';
+import '../styles/Villa.css';
 
 const GuestDashboard: React.FC = () => {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'reservations' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'villas' | 'reservations' | 'profile'>('overview');
   const [message, setMessage] = useState('');
+  const [villas, setVillas] = useState<Villa[]>([]);
 
   const [profileForm, setProfileForm] = useState<UpdateProfileRequest>({
     email: user?.email || '', currentPassword: '', newPassword: '',
@@ -17,6 +21,10 @@ const GuestDashboard: React.FC = () => {
   const [profileErrors, setProfileErrors] = useState<UpdateProfileRequest>({});
 
   const handleLogout = () => { logout(); navigate('/'); };
+
+  useEffect(() => {
+    getAllVillasApi().then(setVillas).catch(() => {});
+  }, []);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,9 +62,10 @@ const GuestDashboard: React.FC = () => {
         <nav className="sidebar-nav">
           {([
             { key: 'overview', icon: '🏠', label: 'Overview' },
+            { key: 'villas', icon: '🏖️', label: 'Explore Villas' },
             { key: 'reservations', icon: '📅', label: 'My Reservations' },
             { key: 'profile', icon: '👤', label: 'My Profile' },
-          ] as { key: 'overview' | 'reservations' | 'profile'; icon: string; label: string }[]).map(item => (
+          ] as { key: 'overview' | 'villas' | 'reservations' | 'profile'; icon: string; label: string }[]).map(item => (
             <button
               key={item.key}
               className={`nav-item ${activeTab === item.key ? 'active' : ''}`}
@@ -89,6 +98,19 @@ const GuestDashboard: React.FC = () => {
               <div className="stat-card"><span className="stat-icon">💳</span><h3>0</h3><p>Payments</p></div>
               <div className="stat-card"><span className="stat-icon">🎁</span><h3>3</h3><p>Active Offers</p></div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'villas' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Explore Our Villas</h2>
+            {villas.length === 0 ? (
+              <p className="empty-state">No villas available at the moment. Check back soon!</p>
+            ) : (
+              <div className="guest-villas-grid">
+                {villas.map(v => <VillaCard key={v.id} villa={v} />)}
+              </div>
+            )}
           </div>
         )}
 
