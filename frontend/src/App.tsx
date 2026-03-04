@@ -9,6 +9,8 @@ import StaffDashboard from './pages/StaffDashboard';
 import GuestDashboard from './pages/GuestDashboard';
 import VillaDetails from './pages/VillaDetails';
 import BookingPage from './pages/BookingPage';
+import PaymentPage from './pages/PaymentPage';
+import MyPayments from './pages/MyPayments';
 import { useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -73,6 +75,26 @@ function AppContent() {
           element={
             <ProtectedRoute roles={['GUEST']}>
               <BookingPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Payment Page — GUEST only */}
+        <Route
+          path="/payment/:bookingId"
+          element={
+            <ProtectedRoute roles={['GUEST']}>
+              <PaymentPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* My Payments — GUEST only */}
+        <Route
+          path="/my-payments"
+          element={
+            <ProtectedRoute roles={['GUEST']}>
+              <MyPayments />
             </ProtectedRoute>
           }
         />

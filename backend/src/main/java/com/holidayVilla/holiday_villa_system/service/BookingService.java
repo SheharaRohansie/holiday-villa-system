@@ -97,6 +97,14 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    // ── GUEST: Get single booking by ID ───────────────────────────────────────
+
+    public BookingResponse getMyBookingById(Long bookingId, String email) {
+        Booking booking = getBookingById(bookingId);
+        assertOwner(booking, email);
+        return toResponse(booking);
+    }
+
     // ── GUEST: Cancel booking ─────────────────────────────────────────────────
 
     @Transactional

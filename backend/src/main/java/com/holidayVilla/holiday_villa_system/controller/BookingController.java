@@ -59,6 +59,17 @@ public class BookingController {
     }
 
     /**
+     * Get a single booking by ID for the authenticated guest.
+     */
+    @GetMapping("/api/bookings/{id}")
+    @PreAuthorize("hasRole('GUEST')")
+    public ResponseEntity<BookingResponse> getMyBookingById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(bookingService.getMyBookingById(id, userDetails.getUsername()));
+    }
+
+    /**
      * Cancel a booking (guest can only cancel their own bookings).
      */
     @PutMapping("/api/bookings/{id}/cancel")

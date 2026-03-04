@@ -1,0 +1,357 @@
+/* ===== SHARED PAYMENT UTILITIES ===== */
+.fmt-lkr { font-variant-numeric: tabular-nums; }
+
+/* ===== PAYMENT PAGE ===== */
+.payment-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e8f4f8 100%);
+  padding: 2rem 1rem;
+}
+
+.payment-container {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.payment-page-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #023047;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 680px) { .payment-grid { grid-template-columns: 1fr; } }
+
+/* ── Booking Summary Card ── */
+.booking-summary-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(2,48,71,0.08);
+}
+
+.booking-summary-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #023047;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e3f2fd;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0;
+  font-size: 0.92rem;
+  border-bottom: 1px solid #f5f5f5;
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-row .label { color: #666; }
+.summary-row .value { font-weight: 600; color: #023047; }
+.summary-row .value.highlight { color: #0077b6; font-size: 1.05rem; }
+.summary-row .value.success-color { color: #2e7d32; }
+.summary-row .value.warning-color { color: #e65100; }
+
+/* ── Payment Form Card ── */
+.payment-form-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(2,48,71,0.08);
+}
+
+.payment-form-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #023047;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e3f2fd;
+}
+
+.payment-option-group {
+  margin-bottom: 1.2rem;
+}
+
+.payment-option-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 0.4rem;
+}
+
+.payment-option-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.opt-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  color: #555;
+}
+.opt-btn:hover { border-color: #0077b6; color: #0077b6; background: #e3f4fd; }
+.opt-btn.active { border-color: #023047; background: #023047; color: #fff; }
+
+.pay-amount-preview {
+  background: linear-gradient(135deg, #023047, #0077b6);
+  color: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+.pay-amount-preview .preview-label { font-size: 0.8rem; opacity: 0.85; }
+.pay-amount-preview .preview-amount { font-size: 1.5rem; font-weight: 800; margin-top: 0.2rem; }
+
+.btn-pay {
+  width: 100%;
+  padding: 0.9rem;
+  background: linear-gradient(135deg, #023047, #0077b6);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.btn-pay:hover { opacity: 0.88; }
+.btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Success Banner ── */
+.payment-success-banner {
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  border: 1.5px solid #81c784;
+  border-radius: 14px;
+  padding: 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.payment-success-banner .success-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.payment-success-banner h2 { color: #2e7d32; font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; }
+.payment-success-banner p { color: #388e3c; margin: 0.2rem 0; font-size: 0.95rem; }
+.payment-success-banner .tx-ref {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  display: inline-block;
+  margin: 0.8rem 0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #1565c0;
+  font-weight: 700;
+}
+
+.btn-download-invoice {
+  padding: 0.75rem 1.8rem;
+  background: #023047;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: opacity 0.18s;
+}
+.btn-download-invoice:hover { opacity: 0.85; }
+
+/* ===== MY PAYMENTS PAGE ===== */
+.my-payments-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e8f4f8 100%);
+  padding: 2rem 1rem;
+}
+
+.my-payments-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.my-payments-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #023047;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.payments-table-wrapper {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(2,48,71,0.08);
+  overflow: hidden;
+}
+
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.payments-table thead {
+  background: #023047;
+  color: #fff;
+}
+
+.payments-table thead th {
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.payments-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+.payments-table tbody tr:last-child { border-bottom: none; }
+.payments-table tbody tr:hover { background: #f5f9ff; }
+
+.payments-table tbody td {
+  padding: 0.8rem 1rem;
+  color: #333;
+  vertical-align: middle;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-advance   { background: #e3f2fd; color: #1565c0; }
+.badge-full      { background: #e8f5e9; color: #2e7d32; }
+.badge-remaining { background: #fff8e1; color: #e65100; }
+.badge-success   { background: #e8f5e9; color: #2e7d32; }
+.badge-failed    { background: #ffebee; color: #c62828; }
+
+.btn-invoice-sm {
+  padding: 0.35rem 0.8rem;
+  background: #023047;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.btn-invoice-sm:hover { opacity: 0.82; }
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+.empty-state p { font-size: 1rem; }
+
+/* ===== REVENUE DASHBOARD ===== */
+.revenue-dashboard {
+  padding: 1.5rem;
+}
+
+.revenue-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #023047;
+  margin-bottom: 1.5rem;
+}
+
+.stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  box-shadow: 0 2px 12px rgba(2,48,71,0.07);
+  border-left: 4px solid #0077b6;
+}
+.stat-card.green  { border-left-color: #2e7d32; }
+.stat-card.orange { border-left-color: #e65100; }
+.stat-card.blue   { border-left-color: #1565c0; }
+.stat-card.teal   { border-left-color: #00695c; }
+.stat-card.purple { border-left-color: #4527a0; }
+
+.stat-card .stat-label {
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.stat-card .stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #023047;
+  margin-top: 0.3rem;
+}
+.stat-card .stat-value.lkr { font-size: 1.1rem; }
+
+.chart-section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(2,48,71,0.07);
+  margin-bottom: 1.5rem;
+}
+.chart-section h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #023047;
+  margin-bottom: 1.2rem;
+}
+
+.payments-admin-section {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(2,48,71,0.07);
+  overflow: hidden;
+}
+.payments-admin-section h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #023047;
+  padding: 1rem 1.2rem;
+  background: #f8fbff;
+  border-bottom: 1px solid #e3f2fd;
+}
+
+.revenue-loading {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  font-size: 1.1rem;
+}
+
+/* ── Recharts responsive fix ── */
+.recharts-wrapper { width: 100% !important; }

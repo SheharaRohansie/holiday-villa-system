@@ -48,6 +48,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
                 // Guest booking endpoints
                 .requestMatchers("/api/bookings/**").hasRole("GUEST")
+                // Guest payment endpoints
+                .requestMatchers(HttpMethod.POST, "/api/payments/pay").hasRole("GUEST")
+                .requestMatchers(HttpMethod.GET, "/api/payments/my").hasRole("GUEST")
+                // Invoice download – any authenticated user (guests own + admins all)
+                .requestMatchers(HttpMethod.GET, "/api/payments/*/invoice").authenticated()
                 // Authenticated users
                 .requestMatchers("/api/user/**").authenticated()
                 .anyRequest().authenticated()

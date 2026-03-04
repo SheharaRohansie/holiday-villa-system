@@ -11,6 +11,9 @@ export const processPaymentApi = (bookingId: number, data: PaymentRequest): Prom
 export const getMyBookingsApi = (): Promise<Booking[]> =>
   axiosInstance.get('/bookings/my').then(r => r.data);
 
+export const getBookingByIdApi = (bookingId: number): Promise<Booking> =>
+  axiosInstance.get(`/bookings/${bookingId}`).then(r => r.data);
+
 export const cancelBookingApi = (bookingId: number): Promise<Booking> =>
   axiosInstance.put(`/bookings/${bookingId}/cancel`).then(r => r.data);
 

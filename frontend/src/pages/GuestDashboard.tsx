@@ -100,6 +100,12 @@ const GuestDashboard: React.FC = () => {
               <span>{item.icon}</span> {item.label}
             </button>
           ))}
+          <button
+            className="nav-item"
+            onClick={() => navigate('/my-payments')}
+          >
+            <span>💳</span> My Payments
+          </button>
         </nav>
         <button className="btn-logout-sidebar" onClick={handleLogout}>🚪 Logout</button>
       </aside>
@@ -203,6 +209,15 @@ const GuestDashboard: React.FC = () => {
                     </div>
                     {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
                       <div className="booking-card-actions">
+                        {b.paymentStatus !== 'FULLY_PAID' && (
+                          <button
+                            className="btn-primary-action inline"
+                            style={{ marginRight: '0.5rem' }}
+                            onClick={() => navigate(`/payment/${b.id}`)}
+                          >
+                            💳 Pay Now
+                          </button>
+                        )}
                         <button
                           className="btn-cancel-booking"
                           onClick={() => handleCancelBooking(b.id)}

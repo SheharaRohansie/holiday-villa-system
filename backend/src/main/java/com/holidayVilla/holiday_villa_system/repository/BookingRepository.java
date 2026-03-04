@@ -2,6 +2,7 @@ package com.holidayVilla.holiday_villa_system.repository;
 
 import com.holidayVilla.holiday_villa_system.entity.Booking;
 import com.holidayVilla.holiday_villa_system.entity.BookingStatus;
+import com.holidayVilla.holiday_villa_system.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,4 +33,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("checkOut") LocalDate checkOut,
             @Param("cancelledStatus") BookingStatus cancelledStatus
     );
+
+    long countByStatus(BookingStatus status);
+
+    long countByPaymentStatus(PaymentStatus paymentStatus);
 }

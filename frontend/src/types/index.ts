@@ -117,3 +117,55 @@ export interface Booking {
   paymentStatus: PaymentStatus;
   createdAt: string;
 }
+
+// ---- Payment Types ----
+export type PaymentType = 'ADVANCE' | 'FULL' | 'REMAINING';
+export type PaymentMethod = 'CARD' | 'CASH' | 'BANK_TRANSFER';
+export type PaymentTransactionStatus = 'SUCCESS' | 'FAILED';
+
+export interface PaymentProcessRequest {
+  bookingId: number;
+  paymentType: PaymentType;
+  paymentMethod: PaymentMethod;
+}
+
+export interface PaymentRecord {
+  id: number;
+  bookingId: number;
+  userId: number;
+  guestName: string;
+  guestEmail: string;
+  villaName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  amount: number;
+  totalPrice: number;
+  amountPaid: number;
+  remainingAmount: number;
+  paymentType: PaymentType;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentTransactionStatus;
+  transactionReference: string;
+  paymentDate: string;
+  bookingStatus: BookingStatus;
+  bookingPaymentStatus: PaymentStatus;
+}
+
+// ---- Analytics Types ----
+export interface MonthlyRevenue {
+  year: number;
+  month: number;
+  monthLabel: string;
+  revenue: number;
+}
+
+export interface RevenueAnalytics {
+  totalRevenue: number;
+  totalAdvancePayments: number;
+  totalRemainingPayments: number;
+  totalFullPayments: number;
+  totalBookings: number;
+  totalCompletedBookings: number;
+  totalPendingPayments: number;
+  monthlyRevenue: MonthlyRevenue[];
+}

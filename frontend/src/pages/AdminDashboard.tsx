@@ -7,11 +7,12 @@ import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
+import RevenueDashboard from './RevenueDashboard';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
 import '../styles/Booking.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue';
 
 const emptyVillaForm = (): VillaRequest => ({
   name: '', description: '', pricePerNight: '',
@@ -251,6 +252,7 @@ const AdminDashboard: React.FC = () => {
             { key: 'staff', icon: '👥', label: 'Staff Members' },
             { key: 'guests', icon: '🧳', label: 'Guests' },
             { key: 'create-staff', icon: '➕', label: 'Create Staff' },
+            { key: 'revenue', icon: '💰', label: 'Revenue Analytics' },
             { key: 'profile', icon: '⚙️', label: 'My Profile' },
           ] as { key: ActiveTab; icon: string; label: string }[]).map(item => (
             <button
@@ -484,6 +486,11 @@ const AdminDashboard: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* REVENUE ANALYTICS */}
+        {activeTab === 'revenue' && (
+          <RevenueDashboard />
         )}
 
         {/* PROFILE */}
