@@ -18,6 +18,13 @@ public class RevenueAnalyticsResponse {
     private Long totalCompletedBookings;
     private Long totalPendingPayments;   // PARTIALLY_PAID bookings count
 
+    // Discount / promotion analytics
+    private Double totalDiscountGiven;
+    private Double revenueBeforeDiscount;
+    private Double revenueAfterDiscount;
+    private Long bookingsWithPromotion;
+    private String mostUsedPromotion;
+
     private List<MonthlyRevenue> monthlyRevenue;
 
     @Data

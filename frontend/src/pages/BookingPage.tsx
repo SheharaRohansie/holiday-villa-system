@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVillaByIdApi } from '../api/villaApi';
 import { createBookingApi, processPaymentApi } from '../api/bookingApi';
+import { getApplicablePromotionApi } from '../api/promotionApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa } from '../types';
+import type { Villa, ApplicablePromotion } from '../types';
 import '../styles/Booking.css';
 
 const formatLKR = (amount: number) =>
@@ -29,6 +30,11 @@ const BookingPage: React.FC = () => {
   const [checkOut, setCheckOut] = useState(tomorrow());
   const [paymentType, setPaymentType] = useState<'ADVANCE' | 'FULL'>('ADVANCE');
 
+  // ── Promotion state ─────────────────────────────────────────────────────
+  const [promotion, setPromotion] = useState<ApplicablePromotion | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoChoice, setPromoChoice] = useState<'apply' | 'skip' | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -50,9 +56,32 @@ const BookingPage: React.FC = () => {
   };
 
   const nights = calcNights();
-  const totalPrice = villa ? nights * villa.pricePerNight : 0;
-  const advanceAmount = Math.round(totalPrice * 0.30 * 100) / 100;
-  const remainingAmount = Math.round((totalPrice - advanceAmount) * 100) / 100;
+  const originalTotal = villa ? nights * villa.pricePerNight : 0;
+
+  // ── When dates change, check for applicable promotion ──────────────────
+  const checkPromotion = useCallback(async () => {
+    if (!villa || nights <= 0) { setPromotion(null); setPromoChoice(null); return; }
+    setPromoLoading(true);
+    try {
+      const result = await getApplicablePromotionApi(villa.id, checkIn, checkOut);
+      setPromotion(result ?? null);
+      setPromoChoice(null); // reset choice when dates change
+    } catch {
+      setPromotion(null);
+    } finally {
+      setPromoLoading(false);
+    }
+  }, [villa, checkIn, checkOut, nights]);
+
+  useEffect(() => { checkPromotion(); }, [checkIn, checkOut, villa]);
+
+  // ── Effective price ────────────────────────────────────────────────────
+  const effectiveTotal = (promotion && promoChoice === 'apply')
+    ? promotion.finalPrice
+    : originalTotal;
+  const discountAmount = (promotion && promoChoice === 'apply') ? promotion.discountAmount : 0;
+  const advanceAmount  = Math.round(effectiveTotal * 0.30 * 100) / 100;
+  const remainingAmount = Math.round((effectiveTotal - advanceAmount) * 100) / 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,13 +90,21 @@ const BookingPage: React.FC = () => {
     if (nights <= 0) { setSubmitError('Check-out must be after check-in.'); return; }
     if (!villa) return;
 
+    // Require a promotion choice if a promotion is available
+    if (promotion && promoChoice === null) {
+      setSubmitError('Please choose whether to apply the promotion or continue without it.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // Step 1: Create booking (PENDING, UNPAID)
+      // Step 1: Create booking with optional promotion
       const booking = await createBookingApi({
         villaId: villa.id,
         checkInDate: checkIn,
         checkOutDate: checkOut,
+        appliedPromotionId: (promotion && promoChoice === 'apply') ? promotion.promotionId : null,
+        promotionAccepted: promoChoice === 'apply',
       });
 
       // Step 2: Simulate payment
@@ -77,11 +114,16 @@ const BookingPage: React.FC = () => {
         ? `${formatLKR(paid.amountPaid)} (30% advance)`
         : formatLKR(paid.amountPaid);
 
+      const discountNote = (booking.promotionAccepted && booking.discountAmount && booking.discountAmount > 0)
+        ? `\n\n🎉 Promotion applied — you saved ${formatLKR(booking.discountAmount)}!`
+        : '';
+
       setSuccessMessage(
         `Payment of ${amountLabel} was successful!\n\nYour booking for ${villa.name} has been confirmed.` +
         (paymentType === 'ADVANCE'
           ? `\n\nRemaining balance of ${formatLKR(paid.remainingAmount)} must be paid at check-out.`
-          : '')
+          : '') +
+        discountNote
       );
       setShowSuccess(true);
     } catch (err: unknown) {
@@ -191,12 +233,25 @@ const BookingPage: React.FC = () => {
               <div className="booking-price-summary">
                 <div className="price-row">
                   <span>{formatLKR(villa.pricePerNight)} × {nights} night{nights !== 1 ? 's' : ''}</span>
-                  <span>{formatLKR(totalPrice)}</span>
+                  <span>{formatLKR(originalTotal)}</span>
                 </div>
+                {promoChoice === 'apply' && promotion && (
+                  <div className="price-row price-discount">
+                    <span>🎉 Promotion Discount</span>
+                    <span style={{ color: '#2e7d32' }}>−{formatLKR(discountAmount)}</span>
+                  </div>
+                )}
                 <hr className="price-divider" />
                 <div className="price-row price-total">
                   <span>Total</span>
-                  <span>{formatLKR(totalPrice)}</span>
+                  <span>
+                    {promoChoice === 'apply' && promotion ? (
+                      <>
+                        <s style={{ color: '#aaa', marginRight: 6 }}>{formatLKR(originalTotal)}</s>
+                        {formatLKR(effectiveTotal)}
+                      </>
+                    ) : formatLKR(effectiveTotal)}
+                  </span>
                 </div>
                 <div className="price-row price-advance">
                   <span>Advance (30%)</span>
@@ -210,6 +265,58 @@ const BookingPage: React.FC = () => {
             ) : (
               <div className="booking-price-placeholder">
                 Select valid dates to see price summary.
+              </div>
+            )}
+
+            {/* ── Promotion Banner ─────────────────────────────────────── */}
+            {nights > 0 && promoLoading && (
+              <div className="promo-loading">Checking for available promotions…</div>
+            )}
+            {nights > 0 && !promoLoading && promotion && (
+              <div className="promo-offer-card">
+                <div className="promo-offer-header">
+                  🔥 Special Offer Available!
+                </div>
+                <div className="promo-offer-title">{promotion.title}</div>
+                <div className="promo-offer-desc">{promotion.description}</div>
+                <div className="promo-offer-details">
+                  <div className="promo-price-row">
+                    <span>Original Total:</span>
+                    <span>{formatLKR(promotion.originalPrice)}</span>
+                  </div>
+                  <div className="promo-price-row promo-discount-row">
+                    <span>Discount ({promotion.discountType === 'PERCENTAGE'
+                      ? `${promotion.discountValue}%`
+                      : `Fixed LKR ${promotion.discountValue.toLocaleString()}`}):</span>
+                    <span>−{formatLKR(promotion.discountAmount)}</span>
+                  </div>
+                  <div className="promo-price-row promo-final-row">
+                    <span>Final Price:</span>
+                    <span>{formatLKR(promotion.finalPrice)}</span>
+                  </div>
+                </div>
+                <div className="promo-offer-choices">
+                  <label className={`promo-choice-label ${promoChoice === 'apply' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="promoChoice"
+                      value="apply"
+                      checked={promoChoice === 'apply'}
+                      onChange={() => setPromoChoice('apply')}
+                    />
+                    ✅ Apply Promotion
+                  </label>
+                  <label className={`promo-choice-label ${promoChoice === 'skip' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="promoChoice"
+                      value="skip"
+                      checked={promoChoice === 'skip'}
+                      onChange={() => setPromoChoice('skip')}
+                    />
+                    Continue Without Promotion
+                  </label>
+                </div>
               </div>
             )}
 
@@ -244,7 +351,7 @@ const BookingPage: React.FC = () => {
                 <div className="payment-option-content">
                   <div className="payment-option-title">Pay Full Amount Now</div>
                   <div className="payment-option-detail">
-                    Pay <strong>{formatLKR(totalPrice)}</strong> now — fully covered.
+                    Pay <strong>{formatLKR(effectiveTotal)}</strong> now — fully covered.
                   </div>
                 </div>
               </label>
@@ -263,7 +370,7 @@ const BookingPage: React.FC = () => {
                 ? 'Processing…'
                 : paymentType === 'ADVANCE'
                   ? `Pay 30% & Confirm Booking — ${formatLKR(advanceAmount)}`
-                  : `Pay Full Amount & Confirm Booking — ${formatLKR(totalPrice)}`}
+                  : `Pay Full Amount & Confirm Booking — ${formatLKR(effectiveTotal)}`}
             </button>
           </form>
         </div>

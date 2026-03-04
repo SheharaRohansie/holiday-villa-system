@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAllVillasApi } from '../api/villaApi';
-import type { Villa } from '../types';
+import { getActivePromotionsApi } from '../api/promotionApi';
+import type { Villa, Promotion } from '../types';
 import VillaCard from '../components/VillaCard';
 import '../styles/HomePage.css';
 import '../styles/Villa.css';
@@ -10,9 +11,19 @@ import '../styles/Villa.css';
 const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const [villas, setVillas] = useState<Villa[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [highlightedVillaId, setHighlightedVillaId] = useState<number | null>(null);
+
+  const handleViewVilla = (villaId: number) => {
+    setHighlightedVillaId(villaId);
+    document.getElementById('villas')?.scrollIntoView({ behavior: 'smooth' });
+    // Clear highlight after 3 seconds
+    setTimeout(() => setHighlightedVillaId(null), 3000);
+  };
 
   useEffect(() => {
     getAllVillasApi().then(setVillas).catch(() => {});
+    getActivePromotionsApi().then(setPromotions).catch(() => {});
   }, []);
 
   return (
@@ -72,7 +83,15 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="villa-grid-live">
-            {villas.map(v => <VillaCard key={v.id} villa={v} />)}
+            {villas.map(v => (
+              <div
+                key={v.id}
+                id={`villa-${v.id}`}
+                className={highlightedVillaId === v.id ? 'villa-highlight-wrapper' : ''}
+              >
+                <VillaCard villa={v} />
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -83,16 +102,35 @@ const HomePage: React.FC = () => {
           <h2>Current Offers & Promotions</h2>
           <p>Exclusive deals crafted just for you</p>
         </div>
-        <div className="offers-grid">
-          {offersData.map((offer) => (
-            <div key={offer.id} className="offer-card">
-              <div className="offer-badge">{offer.discount}</div>
-              <h3>{offer.title}</h3>
-              <p>{offer.description}</p>
-              <span className="offer-validity">Valid until {offer.validity}</span>
-            </div>
-          ))}
-        </div>
+        {promotions.length === 0 ? (
+          <div className="offers-grid">
+            {offersData.map((offer) => (
+              <div key={offer.id} className="offer-card">
+                <div className="offer-badge">{offer.discount}</div>
+                <h3>{offer.title}</h3>
+                <p>{offer.description}</p>
+                <span className="offer-validity">Valid until {offer.validity}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="offers-grid">
+            {promotions.map(promo => (
+              <div key={promo.id} className="offer-card live-offer-card">
+                <div className="offer-badge">
+                  {promo.discountType === 'PERCENTAGE'
+                    ? `${promo.discountValue}% OFF`
+                    : `LKR ${promo.discountValue.toLocaleString()} OFF`}
+                </div>
+                <div className="offer-villa-tag">{promo.villaName}</div>
+                <h3>{promo.title}</h3>
+                <p>{promo.description}</p>
+                <span className="offer-validity">Valid until {promo.endDate}</span>
+                <button className="btn-offer-view" onClick={() => handleViewVilla(promo.villaId)}>View Villa →</button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* About Section */}

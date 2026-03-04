@@ -16,4 +16,8 @@ public class BookingRequestDTO {
 
     @NotNull(message = "Check-out date is required")
     private LocalDate checkOutDate;
+
+    // Promotion fields (optional)
+    private Long appliedPromotionId;
+    private Boolean promotionAccepted;
 }

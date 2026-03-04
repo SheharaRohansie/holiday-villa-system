@@ -50,6 +50,24 @@ public class Booking {
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
 
+    // ── Promotion fields ──────────────────────────────────────────────────────
+
+    @Column
+    private Double originalPrice;
+
+    @Column
+    private Double discountAmount;
+
+    @Column
+    private Double finalPrice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "applied_promotion_id")
+    private Promotion appliedPromotion;
+
+    @Column
+    private Boolean promotionAccepted;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

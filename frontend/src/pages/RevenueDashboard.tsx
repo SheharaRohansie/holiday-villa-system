@@ -96,6 +96,28 @@ const RevenueDashboard: React.FC = () => {
           <div className="stat-label">Partially Paid</div>
           <div className="stat-value">{analytics.totalPendingPayments}</div>
         </div>
+        <div className="stat-card orange">
+          <div className="stat-label">Total Discounts Given</div>
+          <div className="stat-value lkr">{fmtShort(analytics.totalDiscountGiven || 0)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Revenue Before Discounts</div>
+          <div className="stat-value lkr">{fmtShort(analytics.revenueBeforeDiscount || 0)}</div>
+        </div>
+        <div className="stat-card blue">
+          <div className="stat-label">Revenue After Discounts</div>
+          <div className="stat-value lkr">{fmtShort(analytics.revenueAfterDiscount || 0)}</div>
+        </div>
+        <div className="stat-card teal">
+          <div className="stat-label">Bookings with Promotion</div>
+          <div className="stat-value">{analytics.bookingsWithPromotion || 0}</div>
+        </div>
+        {analytics.mostUsedPromotion && (
+          <div className="stat-card green" style={{ gridColumn: 'span 2' }}>
+            <div className="stat-label">Most Used Promotion</div>
+            <div className="stat-value" style={{ fontSize: '1rem' }}>{analytics.mostUsedPromotion}</div>
+          </div>
+        )}
       </div>
 
       {/* ── Charts Row ── */}

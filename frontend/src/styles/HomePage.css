@@ -270,3 +270,52 @@
 .footer-links a:hover { color: #fff; }
 .footer-contact p { margin: 0.3rem 0; font-size: 0.9rem; }
 .footer-bottom { text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem; color: #536d7a; font-size: 0.85rem; }
+
+/* ── Live Offers Section ──────────────────────────────────────────────── */
+.live-offer-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.offer-villa-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #0077b6;
+  background: #e0f4ff;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  display: inline-block;
+  margin-bottom: 0.2rem;
+}
+
+.btn-offer-view {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #023047;
+  font-weight: 700;
+  font-size: 0.87rem;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.btn-offer-view:hover { color: #0077b6; }
+
+/* Villa highlight when navigating from promotion */
+@keyframes villa-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 119, 182, 0.6); }
+  50%  { box-shadow: 0 0 0 12px rgba(0, 119, 182, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 119, 182, 0); }
+}
+.villa-highlight-wrapper {
+  border-radius: 16px;
+  animation: villa-glow 1s ease-in-out 3;
+  outline: 2px solid #0077b6;
+  outline-offset: 3px;
+}

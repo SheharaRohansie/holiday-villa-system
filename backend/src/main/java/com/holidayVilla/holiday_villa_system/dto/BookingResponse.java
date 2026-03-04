@@ -28,4 +28,12 @@ public class BookingResponse {
     private BookingStatus status;
     private PaymentStatus paymentStatus;
     private LocalDateTime createdAt;
+
+    // Promotion fields
+    private Double originalPrice;
+    private Double discountAmount;
+    private Double finalPrice;
+    private Long appliedPromotionId;
+    private String appliedPromotionTitle;
+    private Boolean promotionAccepted;
 }

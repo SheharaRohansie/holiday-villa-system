@@ -42,6 +42,9 @@ public class SecurityConfig {
                 // Public villa read-only access (guests and unauthenticated users)
                 .requestMatchers(HttpMethod.GET, "/api/villas").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/villas/**").permitAll()
+                // Public promotion endpoints
+                .requestMatchers(HttpMethod.GET, "/api/promotions/active").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/promotions/applicable").permitAll()
                 // Admin only
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Staff

@@ -6,7 +6,7 @@ import com.holidayVilla.holiday_villa_system.dto.RevenueAnalyticsResponse;
 import com.holidayVilla.holiday_villa_system.entity.*;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
-import com.holidayVilla.holiday_villa_system.repository.PaymentRepository;
+import com.holidayVilla.holiday_villa_system.repository.PaymentRepository;import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +31,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final InvoiceService invoiceService;
+    private final PromotionRepository promotionRepository;
 
     // ── GUEST: Process a payment ───────────────────────────────────────────────
 
@@ -177,6 +178,16 @@ public class PaymentService {
         long completedBookings = bookingRepository.countByStatus(BookingStatus.COMPLETED);
         long pendingPayments   = bookingRepository.countByPaymentStatus(PaymentStatus.PARTIALLY_PAID);
 
+        // Discount / promotion analytics
+        Double totalDiscountGiven  = promotionRepository.getTotalDiscountGiven();
+        Long bookingsWithPromotion = promotionRepository.countBookingsWithPromotion();
+        List<Object[]> mostUsed    = promotionRepository.getMostUsedPromotions();
+        String mostUsedPromotion   = mostUsed.isEmpty() ? null : (String) mostUsed.get(0)[0];
+
+        double revenueAfterDiscount  = totalRevenue  != null ? totalRevenue  : 0.0;
+        double discount              = totalDiscountGiven != null ? totalDiscountGiven : 0.0;
+        double revenueBeforeDiscount = revenueAfterDiscount + discount;
+
         List<Object[]> raw = paymentRepository.getMonthlyRevenue();
         List<RevenueAnalyticsResponse.MonthlyRevenue> monthly = raw.stream()
                 .map(r -> {
@@ -198,6 +209,11 @@ public class PaymentService {
                 .totalBookings(totalBookings)
                 .totalCompletedBookings(completedBookings)
                 .totalPendingPayments(pendingPayments)
+                .totalDiscountGiven(discount)
+                .revenueBeforeDiscount(revenueBeforeDiscount)
+                .revenueAfterDiscount(revenueAfterDiscount)
+                .bookingsWithPromotion(bookingsWithPromotion)
+                .mostUsedPromotion(mostUsedPromotion)
                 .monthlyRevenue(monthly)
                 .build();
     }

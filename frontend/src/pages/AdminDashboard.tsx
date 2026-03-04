@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi } from '../api/villaApi';
 import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
-import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking } from '../types';
+import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deletePromotionApi } from '../api/promotionApi';
+import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
 import RevenueDashboard from './RevenueDashboard';
@@ -12,11 +13,22 @@ import '../styles/Dashboard.css';
 import '../styles/Villa.css';
 import '../styles/Booking.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'promotions' | 'add-promotion' | 'edit-promotion';
 
 const emptyVillaForm = (): VillaRequest => ({
   name: '', description: '', pricePerNight: '',
   maxGuests: '', amenities: [], imageUrls: ['', '', ''],
+});
+
+const emptyPromoForm = (): PromotionRequest => ({
+  villaId: 0,
+  title: '',
+  description: '',
+  discountType: 'PERCENTAGE',
+  discountValue: 0,
+  startDate: '',
+  endDate: '',
+  isActive: true,
 });
 
 const AdminDashboard: React.FC = () => {
@@ -38,6 +50,12 @@ const AdminDashboard: React.FC = () => {
   // Bookings state
   const [bookings, setBookings] = useState<Booking[]>([]);
 
+  // Promotions state
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [promoForm, setPromoForm] = useState<PromotionRequest>(emptyPromoForm());
+  const [editingPromoId, setEditingPromoId] = useState<number | null>(null);
+  const [promoErrors, setPromoErrors] = useState<Partial<Record<keyof PromotionRequest, string>>>({});
+
   // Create Staff Form
   const [staffForm, setStaffForm] = useState<CreateStaffRequest>({
     firstName: '', lastName: '', email: '', phoneNumber: '',
@@ -55,6 +73,7 @@ const AdminDashboard: React.FC = () => {
     loadAllUsers();
     loadVillas();
     loadBookings();
+    loadPromotions();
   }, []);
 
   const loadBookings = async () => {
@@ -74,6 +93,100 @@ const AdminDashboard: React.FC = () => {
       const e = err as { response?: { data?: { message?: string } } };
       setMessage(e.response?.data?.message || 'Failed to complete payment.');
     }
+  };
+
+  const loadPromotions = async () => {
+    try { setPromotions(await getAllPromotionsApi()); } catch { /* silent */ }
+  };
+
+  const validatePromoForm = (form: PromotionRequest): Partial<Record<keyof PromotionRequest, string>> => {
+    const errs: Partial<Record<keyof PromotionRequest, string>> = {};
+    if (!form.villaId) errs.villaId = 'Villa is required';
+    if (!form.title.trim()) errs.title = 'Title is required';
+    if (!form.description.trim()) errs.description = 'Description is required';
+    if (!form.discountValue || form.discountValue <= 0) errs.discountValue = 'Discount value must be positive';
+    if (form.discountType === 'PERCENTAGE' && form.discountValue > 100) errs.discountValue = 'Percentage cannot exceed 100';
+    if (!form.startDate) errs.startDate = 'Start date is required';
+    if (!form.endDate) errs.endDate = 'End date is required';
+    if (form.startDate && form.endDate && form.endDate <= form.startDate) errs.endDate = 'End date must be after start date';
+    return errs;
+  };
+
+  const handleAddPromotion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validatePromoForm(promoForm);
+    setPromoErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    try {
+      await createPromotionApi(promoForm);
+      setMessage('Promotion created successfully!');
+      setPromoForm(emptyPromoForm());
+      await loadPromotions();
+      setActiveTab('promotions');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to create promotion.');
+    }
+  };
+
+  const handleEditPromotionSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPromoId) return;
+    const errs = validatePromoForm(promoForm);
+    setPromoErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    try {
+      await updatePromotionApi(editingPromoId, promoForm);
+      setMessage('Promotion updated successfully!');
+      setPromoForm(emptyPromoForm());
+      setEditingPromoId(null);
+      await loadPromotions();
+      setActiveTab('promotions');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to update promotion.');
+    }
+  };
+
+  const handleDeletePromotion = async (id: number) => {
+    if (!window.confirm('Delete this promotion?')) return;
+    try {
+      await deletePromotionApi(id);
+      setMessage('Promotion deleted.');
+      await loadPromotions();
+    } catch { setMessage('Failed to delete promotion.'); }
+  };
+
+  const handleTogglePromotion = async (promo: Promotion) => {
+    try {
+      await updatePromotionApi(promo.id, {
+        villaId: promo.villaId,
+        title: promo.title,
+        description: promo.description,
+        discountType: promo.discountType,
+        discountValue: promo.discountValue,
+        startDate: promo.startDate,
+        endDate: promo.endDate,
+        isActive: !promo.isActive,
+      });
+      await loadPromotions();
+    } catch { setMessage('Failed to toggle promotion.'); }
+  };
+
+  const startEditPromotion = (promo: Promotion) => {
+    setEditingPromoId(promo.id);
+    setPromoForm({
+      villaId: promo.villaId,
+      title: promo.title,
+      description: promo.description,
+      discountType: promo.discountType,
+      discountValue: promo.discountValue,
+      startDate: promo.startDate,
+      endDate: promo.endDate,
+      isActive: promo.isActive,
+    });
+    setPromoErrors({});
+    setActiveTab('edit-promotion');
   };
 
   const loadAllUsers = async () => {
@@ -249,6 +362,7 @@ const AdminDashboard: React.FC = () => {
             { key: 'overview', icon: '📊', label: 'Overview' },
             { key: 'bookings', icon: '📅', label: 'Manage Bookings' },
             { key: 'villas', icon: '🏖️', label: 'Manage Villas' },
+            { key: 'promotions', icon: '🎁', label: 'Manage Promotions' },
             { key: 'staff', icon: '👥', label: 'Staff Members' },
             { key: 'guests', icon: '🧳', label: 'Guests' },
             { key: 'create-staff', icon: '➕', label: 'Create Staff' },
@@ -488,12 +602,99 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* PROMOTIONS */}
+        {activeTab === 'promotions' && (
+          <div className="tab-content">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 className="tab-title">Manage Promotions</h2>
+              <button className="btn-primary-action" onClick={() => { setPromoForm(emptyPromoForm()); setPromoErrors({}); setActiveTab('add-promotion'); }}>
+                ➕ Add Promotion
+              </button>
+            </div>
+            {promotions.length === 0 ? (
+              <p className="empty-state">No promotions found. Create one to get started.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Villa</th><th>Title</th><th>Discount</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promotions.map(p => (
+                      <tr key={p.id}>
+                        <td>{p.villaName}</td>
+                        <td>
+                          <div><strong>{p.title}</strong></div>
+                          <small style={{ color: '#888' }}>{p.description}</small>
+                        </td>
+                        <td>
+                          <span className="badge badge-advance">
+                            {p.discountType === 'PERCENTAGE' ? `${p.discountValue}%` : `LKR ${p.discountValue.toLocaleString()}`} OFF
+                          </span>
+                        </td>
+                        <td>{p.startDate}</td>
+                        <td>{p.endDate}</td>
+                        <td>
+                          <button
+                            className={`badge-status ${p.isActive ? 'status-confirmed' : 'status-cancelled'}`}
+                            style={{ cursor: 'pointer', border: 'none', padding: '0.25rem 0.6rem', borderRadius: '4px', fontWeight: 600 }}
+                            onClick={() => handleTogglePromotion(p)}
+                            title="Click to toggle active/inactive"
+                          >
+                            {p.isActive ? '✅ Active' : '⏸ Inactive'}
+                          </button>
+                        </td>
+                        <td style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn-primary-action" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }} onClick={() => startEditPromotion(p)}>Edit</button>
+                          <button className="btn-delete" onClick={() => handleDeletePromotion(p.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ADD PROMOTION */}
+        {activeTab === 'add-promotion' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Add New Promotion</h2>
+            <div className="form-card">
+              <form onSubmit={handleAddPromotion} noValidate>
+                <PromotionFormFields form={promoForm} setForm={setPromoForm} errors={promoErrors} villas={villas} />
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-primary-action">Create Promotion</button>
+                  <button type="button" className="btn-primary-action" style={{ background: '#888' }} onClick={() => setActiveTab('promotions')}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT PROMOTION */}
+        {activeTab === 'edit-promotion' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Edit Promotion</h2>
+            <div className="form-card">
+              <form onSubmit={handleEditPromotionSave} noValidate>
+                <PromotionFormFields form={promoForm} setForm={setPromoForm} errors={promoErrors} villas={villas} />
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-primary-action">Update Promotion</button>
+                  <button type="button" className="btn-primary-action" style={{ background: '#888' }} onClick={() => setActiveTab('promotions')}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* REVENUE ANALYTICS */}
         {activeTab === 'revenue' && (
           <RevenueDashboard />
         )}
-
-        {/* PROFILE */}
         {activeTab === 'profile' && (
           <div className="tab-content">
             <h2 className="tab-title">My Profile Settings</h2>
@@ -583,6 +784,72 @@ const VillaFormFields: React.FC<{
         {i === 0 && errors.imageUrls && <span className="field-error">{errors.imageUrls}</span>}
       </div>
     ))}
+  </div>
+);
+
+const PromotionFormFields: React.FC<{
+  form: PromotionRequest;
+  setForm: React.Dispatch<React.SetStateAction<PromotionRequest>>;
+  errors: Partial<Record<keyof PromotionRequest, string>>;
+  villas: Villa[];
+}> = ({ form, setForm, errors, villas }) => (
+  <div className="villa-form-grid">
+    <div className="form-group">
+      <label>Villa *</label>
+      <select value={form.villaId} onChange={e => setForm(p => ({ ...p, villaId: Number(e.target.value) }))}
+        className={errors.villaId ? 'input-error' : ''}>
+        <option value={0}>-- Select Villa --</option>
+        {villas.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+      </select>
+      {errors.villaId && <span className="field-error">{errors.villaId}</span>}
+    </div>
+    <div className="form-group">
+      <label>Title *</label>
+      <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+        placeholder="e.g. Summer Special" className={errors.title ? 'input-error' : ''} />
+      {errors.title && <span className="field-error">{errors.title}</span>}
+    </div>
+    <div className="form-group villa-form-full">
+      <label>Description *</label>
+      <textarea rows={3} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+        placeholder="Describe the promotion…" className={errors.description ? 'input-error' : ''}
+        style={{ resize: 'vertical' }} />
+      {errors.description && <span className="field-error">{errors.description}</span>}
+    </div>
+    <div className="form-group">
+      <label>Discount Type *</label>
+      <select value={form.discountType} onChange={e => setForm(p => ({ ...p, discountType: e.target.value as 'PERCENTAGE' | 'FIXED_AMOUNT' }))}>
+        <option value="PERCENTAGE">Percentage (%)</option>
+        <option value="FIXED_AMOUNT">Fixed Amount (LKR)</option>
+      </select>
+    </div>
+    <div className="form-group">
+      <label>Discount Value * {form.discountType === 'PERCENTAGE' ? '(%)' : '(LKR)'}</label>
+      <input type="number" min={0.01} step={0.01} value={form.discountValue || ''}
+        onChange={e => setForm(p => ({ ...p, discountValue: Number(e.target.value) }))}
+        placeholder={form.discountType === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 10000'}
+        className={errors.discountValue ? 'input-error' : ''} />
+      {errors.discountValue && <span className="field-error">{errors.discountValue}</span>}
+    </div>
+    <div className="form-group">
+      <label>Start Date *</label>
+      <input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))}
+        className={errors.startDate ? 'input-error' : ''} />
+      {errors.startDate && <span className="field-error">{errors.startDate}</span>}
+    </div>
+    <div className="form-group">
+      <label>End Date *</label>
+      <input type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))}
+        className={errors.endDate ? 'input-error' : ''} />
+      {errors.endDate && <span className="field-error">{errors.endDate}</span>}
+    </div>
+    <div className="form-group">
+      <label>Status</label>
+      <select value={form.isActive ? 'true' : 'false'} onChange={e => setForm(p => ({ ...p, isActive: e.target.value === 'true' }))}>
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+    </div>
   </div>
 );
 

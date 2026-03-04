@@ -93,6 +93,9 @@ export interface BookingRequest {
   villaId: number;
   checkInDate: string;   // ISO date "YYYY-MM-DD"
   checkOutDate: string;
+  // Promotion
+  appliedPromotionId?: number | null;
+  promotionAccepted?: boolean;
 }
 
 export interface PaymentRequest {
@@ -116,6 +119,13 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   createdAt: string;
+  // Promotion
+  originalPrice?: number;
+  discountAmount?: number;
+  finalPrice?: number;
+  appliedPromotionId?: number;
+  appliedPromotionTitle?: string;
+  promotionAccepted?: boolean;
 }
 
 // ---- Payment Types ----
@@ -151,6 +161,46 @@ export interface PaymentRecord {
   bookingPaymentStatus: PaymentStatus;
 }
 
+// ---- Promotion Types ----
+export type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+
+export interface Promotion {
+  id: number;
+  villaId: number;
+  villaName: string;
+  title: string;
+  description: string;
+  discountType: DiscountType;
+  discountValue: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface PromotionRequest {
+  villaId: number;
+  title: string;
+  description: string;
+  discountType: DiscountType;
+  discountValue: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
+export interface ApplicablePromotion {
+  promotionId: number;
+  title: string;
+  description: string;
+  discountType: DiscountType;
+  discountValue: number;
+  endDate: string;
+  originalPrice: number;
+  discountAmount: number;
+  finalPrice: number;
+}
+
 // ---- Analytics Types ----
 export interface MonthlyRevenue {
   year: number;
@@ -167,5 +217,11 @@ export interface RevenueAnalytics {
   totalBookings: number;
   totalCompletedBookings: number;
   totalPendingPayments: number;
+  // Discount analytics
+  totalDiscountGiven: number;
+  revenueBeforeDiscount: number;
+  revenueAfterDiscount: number;
+  bookingsWithPromotion: number;
+  mostUsedPromotion?: string;
   monthlyRevenue: MonthlyRevenue[];
 }

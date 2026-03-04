@@ -6,6 +6,7 @@ import com.holidayVilla.holiday_villa_system.dto.PaymentRequestDTO;
 import com.holidayVilla.holiday_villa_system.entity.*;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
+import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import com.holidayVilla.holiday_villa_system.repository.VillaRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final VillaRepository villaRepository;
+    private final PromotionRepository promotionRepository;
 
     // ── GUEST: Create a PENDING booking ──────────────────────────────────────
 
@@ -37,18 +39,48 @@ public class BookingService {
         checkAvailability(villa.getId(), dto.getCheckInDate(), dto.getCheckOutDate());
 
         long nights = ChronoUnit.DAYS.between(dto.getCheckInDate(), dto.getCheckOutDate());
-        double totalPrice = nights * villa.getPricePerNight();
+        double originalPrice = nights * villa.getPricePerNight();
+
+        // ── Promotion resolution ───────────────────────────────────────────────
+        Promotion appliedPromotion = null;
+        boolean promotionAccepted = false;
+        double discountAmount = 0.0;
+        double finalPrice = originalPrice;
+
+        if (dto.getAppliedPromotionId() != null && Boolean.TRUE.equals(dto.getPromotionAccepted())) {
+            Promotion promo = promotionRepository.findById(dto.getAppliedPromotionId()).orElse(null);
+            if (promo != null && promo.getIsActive()
+                    && !dto.getCheckInDate().isBefore(promo.getStartDate())
+                    && !dto.getCheckInDate().isAfter(promo.getEndDate())) {
+                if (promo.getDiscountType() == DiscountType.PERCENTAGE) {
+                    discountAmount = round(originalPrice * promo.getDiscountValue() / 100.0);
+                } else {
+                    discountAmount = Math.min(originalPrice, promo.getDiscountValue());
+                }
+                discountAmount = round(discountAmount);
+                finalPrice = Math.max(0, round(originalPrice - discountAmount));
+                appliedPromotion = promo;
+                promotionAccepted = true;
+            }
+        }
+
+        double effectiveTotal = finalPrice; // payment calcs use this
 
         Booking booking = Booking.builder()
                 .user(user)
                 .villa(villa)
                 .checkInDate(dto.getCheckInDate())
                 .checkOutDate(dto.getCheckOutDate())
-                .totalPrice(totalPrice)
+                .totalPrice(effectiveTotal)
                 .amountPaid(0.0)
-                .remainingAmount(totalPrice)
+                .remainingAmount(effectiveTotal)
                 .status(BookingStatus.PENDING)
                 .paymentStatus(PaymentStatus.UNPAID)
+                .originalPrice(round(originalPrice))
+                .discountAmount(discountAmount)
+                .finalPrice(round(finalPrice))
+                .appliedPromotion(appliedPromotion)
+                .promotionAccepted(promotionAccepted)
                 .build();
 
         return toResponse(bookingRepository.save(booking));
@@ -212,6 +244,14 @@ public class BookingService {
                 .status(b.getStatus())
                 .paymentStatus(b.getPaymentStatus())
                 .createdAt(b.getCreatedAt())
+                .originalPrice(b.getOriginalPrice())
+                .discountAmount(b.getDiscountAmount())
+                .finalPrice(b.getFinalPrice())
+                .appliedPromotionId(b.getAppliedPromotion() != null ? b.getAppliedPromotion().getId() : null)
+                .appliedPromotionTitle(b.getAppliedPromotion() != null ? b.getAppliedPromotion().getTitle() : null)
+                .promotionAccepted(b.getPromotionAccepted())
                 .build();
     }
+
+    private double round(double v) { return Math.round(v * 100.0) / 100.0; }
 }

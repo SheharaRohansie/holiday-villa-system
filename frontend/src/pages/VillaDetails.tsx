@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVillaByIdApi } from '../api/villaApi';
+import { getActivePromotionsApi } from '../api/promotionApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa } from '../types';
+import type { Villa, Promotion } from '../types';
 import '../styles/Villa.css';
 
 const VillaDetails: React.FC = () => {
@@ -13,6 +14,7 @@ const VillaDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeImg, setActiveImg] = useState(0);
+  const [promotion, setPromotion] = useState<Promotion | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -20,6 +22,13 @@ const VillaDetails: React.FC = () => {
     getVillaByIdApi(Number(id))
       .then(data => { setVilla(data); setLoading(false); })
       .catch(() => { setError('Villa not found.'); setLoading(false); });
+    // Fetch active promotions for this villa
+    getActivePromotionsApi()
+      .then(promos => {
+        const match = promos.find(p => p.villaId === Number(id));
+        setPromotion(match ?? null);
+      })
+      .catch(() => {});
   }, [id]);
 
   if (loading) return <div className="villa-details-loading">Loading villa details…</div>;
@@ -69,10 +78,32 @@ const VillaDetails: React.FC = () => {
         <div className="villa-details-info">
           <h1 className="villa-details-name">{villa.name}</h1>
 
+          {/* ── Promotion Banner ──────────────────────────────────────── */}
+          {promotion && (
+            <div className="villa-promo-banner">
+              <div className="villa-promo-tag">🏷️ Limited Time Offer</div>
+              <div className="villa-promo-title">{promotion.title}</div>
+              <div className="villa-promo-desc">{promotion.description}</div>
+              <div className="villa-promo-pricing">
+                <span className="villa-promo-original">
+                  LKR {villa.pricePerNight.toLocaleString()}/night
+                </span>
+                <span className="villa-promo-badge">
+                  {promotion.discountType === 'PERCENTAGE'
+                    ? `${promotion.discountValue}% OFF`
+                    : `LKR ${promotion.discountValue.toLocaleString()} OFF`}
+                </span>
+              </div>
+              <div className="villa-promo-validity">
+                Valid until {promotion.endDate}
+              </div>
+            </div>
+          )}
+
           <div className="villa-details-meta">
             <div className="villa-meta-item">
               <span className="meta-label">Price per night</span>
-              <span className="meta-value price">LKR {villa.pricePerNight}</span>
+              <span className="meta-value price">LKR {villa.pricePerNight.toLocaleString()}</span>
             </div>
             {villa.maxGuests && (
               <div className="villa-meta-item">
