@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVillaByIdApi } from '../api/villaApi';
+import { useAuth } from '../context/AuthContext';
 import type { Villa } from '../types';
 import '../styles/Villa.css';
 
 const VillaDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [villa, setVilla] = useState<Villa | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,8 +98,17 @@ const VillaDetails: React.FC = () => {
             </div>
           )}
 
-          <button className="btn-book-now" disabled>
-            🗓 Book Now — Coming Soon
+          <button
+            className="btn-book-now"
+            onClick={() => {
+              if (!user || user.role !== 'GUEST') {
+                navigate('/login');
+              } else {
+                navigate(`/book/${villa.id}`);
+              }
+            }}
+          >
+            Book Now
           </button>
         </div>
       </div>

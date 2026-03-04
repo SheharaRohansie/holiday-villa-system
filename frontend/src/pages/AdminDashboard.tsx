@@ -3,13 +3,15 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi } from '../api/villaApi';
-import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest } from '../types';
+import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
+import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
+import '../styles/Booking.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings';
 
 const emptyVillaForm = (): VillaRequest => ({
   name: '', description: '', pricePerNight: '',
@@ -32,6 +34,9 @@ const AdminDashboard: React.FC = () => {
   const [villaErrors, setVillaErrors] = useState<Partial<Record<keyof VillaRequest, string>>>({});
   const [editingVillaId, setEditingVillaId] = useState<number | null>(null);
 
+  // Bookings state
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
   // Create Staff Form
   const [staffForm, setStaffForm] = useState<CreateStaffRequest>({
     firstName: '', lastName: '', email: '', phoneNumber: '',
@@ -48,7 +53,27 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     loadAllUsers();
     loadVillas();
+    loadBookings();
   }, []);
+
+  const loadBookings = async () => {
+    try {
+      const data = await getAllBookingsApi();
+      setBookings(data);
+    } catch { /* silent */ }
+  };
+
+  const handleCompletePayment = async (bookingId: number) => {
+    if (!window.confirm('Mark remaining payment as received and complete this booking?')) return;
+    try {
+      await completePaymentApi(bookingId);
+      setMessage('Payment completed. Booking marked as COMPLETED.');
+      loadBookings();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to complete payment.');
+    }
+  };
 
   const loadAllUsers = async () => {
     setLoading(true);
@@ -221,6 +246,7 @@ const AdminDashboard: React.FC = () => {
         <nav className="sidebar-nav">
           {([
             { key: 'overview', icon: '📊', label: 'Overview' },
+            { key: 'bookings', icon: '📅', label: 'Manage Bookings' },
             { key: 'villas', icon: '🏖️', label: 'Manage Villas' },
             { key: 'staff', icon: '👥', label: 'Staff Members' },
             { key: 'guests', icon: '🧳', label: 'Guests' },
@@ -256,11 +282,84 @@ const AdminDashboard: React.FC = () => {
               <div className="stat-card"><span className="stat-icon">🧑‍💼</span><h3>{staff.length}</h3><p>Staff Members</p></div>
               <div className="stat-card"><span className="stat-icon">🧳</span><h3>{guests.length}</h3><p>Guests</p></div>
               <div className="stat-card"><span className="stat-icon">🏨</span><h3>{villas.length}</h3><p>Villas Available</p></div>
+              <div className="stat-card"><span className="stat-icon">📅</span><h3>{bookings.length}</h3><p>Total Bookings</p></div>
+              <div className="stat-card"><span className="stat-icon">✅</span><h3>{bookings.filter(b => b.status === 'CONFIRMED').length}</h3><p>Confirmed</p></div>
             </div>
             <div className="recent-section">
               <h3>Recent Users</h3>
               <UserTable users={allUsers.slice(-5).reverse()} onDelete={handleDeleteUser} />
             </div>
+          </div>
+        )}
+
+        {/* BOOKINGS */}
+        {activeTab === 'bookings' && (
+          <div className="tab-content">
+            <h2 className="tab-title">Manage Bookings</h2>
+            {bookings.length === 0 ? (
+              <p className="empty-state">No bookings found.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table bookings-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Guest</th>
+                      <th>Villa</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Nights</th>
+                      <th>Total (LKR)</th>
+                      <th>Paid (LKR)</th>
+                      <th>Remaining (LKR)</th>
+                      <th>Booking Status</th>
+                      <th>Payment Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookings.map(b => (
+                      <tr key={b.id}>
+                        <td>#{b.id}</td>
+                        <td>
+                          <div className="guest-cell">
+                            <span>{b.guestName}</span>
+                            <small>{b.guestEmail}</small>
+                          </div>
+                        </td>
+                        <td>{b.villaName}</td>
+                        <td>{b.checkInDate}</td>
+                        <td>{b.checkOutDate}</td>
+                        <td>{b.nights}</td>
+                        <td>{b.totalPrice.toLocaleString()}</td>
+                        <td className="paid-amount">{b.amountPaid.toLocaleString()}</td>
+                        <td className={b.remainingAmount > 0 ? 'remaining-amount' : 'paid-amount'}>
+                          {b.remainingAmount.toLocaleString()}
+                        </td>
+                        <td>
+                          <span className={`badge-status status-${b.status.toLowerCase()}`}>{b.status}</span>
+                        </td>
+                        <td>
+                          <span className={`badge-payment payment-${b.paymentStatus.toLowerCase().replace('_', '-')}`}>
+                            {b.paymentStatus.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td>
+                          {b.remainingAmount > 0 && b.status !== 'CANCELLED' && (
+                            <button
+                              className="btn-complete-payment"
+                              onClick={() => handleCompletePayment(b.id)}
+                            >
+                              Complete Payment
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

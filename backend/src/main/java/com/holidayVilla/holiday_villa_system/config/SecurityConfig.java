@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Staff
                 .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
+                // Guest booking endpoints
+                .requestMatchers("/api/bookings/**").hasRole("GUEST")
                 // Authenticated users
                 .requestMatchers("/api/user/**").authenticated()
                 .anyRequest().authenticated()

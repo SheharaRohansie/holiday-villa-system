@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import GuestDashboard from './pages/GuestDashboard';
 import VillaDetails from './pages/VillaDetails';
+import BookingPage from './pages/BookingPage';
 import { useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -63,6 +64,16 @@ function AppContent() {
               <Navbar />
               <VillaDetails />
             </>
+          }
+        />
+
+        {/* Booking Page — GUEST only */}
+        <Route
+          path="/book/:villaId"
+          element={
+            <ProtectedRoute roles={['GUEST']}>
+              <BookingPage />
+            </ProtectedRoute>
           }
         />
 

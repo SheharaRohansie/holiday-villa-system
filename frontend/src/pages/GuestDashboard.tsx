@@ -3,10 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { updateProfileApi } from '../api/userApi';
 import { getAllVillasApi } from '../api/villaApi';
-import type { UpdateProfileRequest, Villa } from '../types';
+import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
+import type { UpdateProfileRequest, Villa, Booking } from '../types';
 import VillaCard from '../components/VillaCard';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
+import '../styles/Booking.css';
 
 const GuestDashboard: React.FC = () => {
   const { user, logout, login } = useAuth();
@@ -14,6 +16,8 @@ const GuestDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'villas' | 'reservations' | 'profile'>('overview');
   const [message, setMessage] = useState('');
   const [villas, setVillas] = useState<Villa[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
 
   const [profileForm, setProfileForm] = useState<UpdateProfileRequest>({
     email: user?.email || '', currentPassword: '', newPassword: '',
@@ -24,7 +28,29 @@ const GuestDashboard: React.FC = () => {
 
   useEffect(() => {
     getAllVillasApi().then(setVillas).catch(() => {});
+    loadMyBookings();
   }, []);
+
+  const loadMyBookings = async () => {
+    setBookingsLoading(true);
+    try {
+      const data = await getMyBookingsApi();
+      setBookings(data);
+    } catch { /* silent */ }
+    finally { setBookingsLoading(false); }
+  };
+
+  const handleCancelBooking = async (bookingId: number) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      await cancelBookingApi(bookingId);
+      setMessage('Booking cancelled successfully.');
+      loadMyBookings();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to cancel booking.');
+    }
+  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +119,9 @@ const GuestDashboard: React.FC = () => {
               <Link to="/#villas" className="btn-primary-action inline">Explore Villas</Link>
             </div>
             <div className="stats-grid">
-              <div className="stat-card"><span className="stat-icon">📅</span><h3>0</h3><p>My Reservations</p></div>
-              <div className="stat-card"><span className="stat-icon">⭐</span><h3>0</h3><p>My Reviews</p></div>
-              <div className="stat-card"><span className="stat-icon">💳</span><h3>0</h3><p>Payments</p></div>
+              <div className="stat-card"><span className="stat-icon">📅</span><h3>{bookings.length}</h3><p>My Reservations</p></div>
+              <div className="stat-card"><span className="stat-icon">✅</span><h3>{bookings.filter(b => b.status === 'CONFIRMED').length}</h3><p>Confirmed</p></div>
+              <div className="stat-card"><span className="stat-icon">💳</span><h3>{bookings.filter(b => b.paymentStatus === 'FULLY_PAID').length}</h3><p>Fully Paid</p></div>
               <div className="stat-card"><span className="stat-icon">🎁</span><h3>3</h3><p>Active Offers</p></div>
             </div>
           </div>
@@ -117,12 +143,78 @@ const GuestDashboard: React.FC = () => {
         {activeTab === 'reservations' && (
           <div className="tab-content">
             <h2 className="tab-title">My Reservations</h2>
-            <div className="coming-soon-card">
-              <span>📅</span>
-              <h3>No Reservations Yet</h3>
-              <p>Reservation management will be available in the next module.</p>
-              <Link to="/#villas" className="btn-primary-action inline">Browse Villas</Link>
-            </div>
+            {bookingsLoading ? (
+              <p className="empty-state">Loading your bookings…</p>
+            ) : bookings.length === 0 ? (
+              <div className="coming-soon-card">
+                <span>📅</span>
+                <h3>No Reservations Yet</h3>
+                <p>Browse our villas and make your first reservation.</p>
+                <button className="btn-primary-action inline" onClick={() => setActiveTab('villas')}>Browse Villas</button>
+              </div>
+            ) : (
+              <div className="bookings-list">
+                {bookings.map(b => (
+                  <div key={b.id} className="booking-card">
+                    <div className="booking-card-header">
+                      <div>
+                        <h3 className="booking-villa-title">{b.villaName}</h3>
+                        <p className="booking-id">Booking #{b.id}</p>
+                      </div>
+                      <div className="booking-badges">
+                        <span className={`badge-status status-${b.status.toLowerCase()}`}>{b.status}</span>
+                        <span className={`badge-payment payment-${b.paymentStatus.toLowerCase().replace('_', '-')}`}>{b.paymentStatus.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                    <div className="booking-card-body">
+                      <div className="booking-detail-grid">
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Check-in</span>
+                          <span className="detail-value">{b.checkInDate}</span>
+                        </div>
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Check-out</span>
+                          <span className="detail-value">{b.checkOutDate}</span>
+                        </div>
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Nights</span>
+                          <span className="detail-value">{b.nights}</span>
+                        </div>
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Total Price</span>
+                          <span className="detail-value">LKR {b.totalPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Amount Paid</span>
+                          <span className="detail-value paid-amount">LKR {b.amountPaid.toLocaleString()}</span>
+                        </div>
+                        <div className="booking-detail-item">
+                          <span className="detail-label">Remaining</span>
+                          <span className={`detail-value ${b.remainingAmount > 0 ? 'remaining-amount' : 'paid-amount'}`}>
+                            LKR {b.remainingAmount.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      {b.paymentStatus === 'PARTIALLY_PAID' && (
+                        <div className="booking-partial-notice">
+                          ⚠️ Remaining balance of <strong>LKR {b.remainingAmount.toLocaleString()}</strong> must be paid at check-out.
+                        </div>
+                      )}
+                    </div>
+                    {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
+                      <div className="booking-card-actions">
+                        <button
+                          className="btn-cancel-booking"
+                          onClick={() => handleCancelBooking(b.id)}
+                        >
+                          Cancel Booking
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

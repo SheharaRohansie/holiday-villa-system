@@ -1,0 +1,209 @@
+package com.holidayVilla.holiday_villa_system.service;
+
+import com.holidayVilla.holiday_villa_system.dto.BookingRequestDTO;
+import com.holidayVilla.holiday_villa_system.dto.BookingResponse;
+import com.holidayVilla.holiday_villa_system.dto.PaymentRequestDTO;
+import com.holidayVilla.holiday_villa_system.entity.*;
+import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
+import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
+import com.holidayVilla.holiday_villa_system.repository.UserRepository;
+import com.holidayVilla.holiday_villa_system.repository.VillaRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class BookingService {
+
+    private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final VillaRepository villaRepository;
+
+    // ── GUEST: Create a PENDING booking ──────────────────────────────────────
+
+    @Transactional
+    public BookingResponse createBooking(BookingRequestDTO dto, String email) {
+        User user = getUserByEmail(email);
+        Villa villa = getVillaById(dto.getVillaId());
+
+        validateDates(dto.getCheckInDate(), dto.getCheckOutDate());
+        checkAvailability(villa.getId(), dto.getCheckInDate(), dto.getCheckOutDate());
+
+        long nights = ChronoUnit.DAYS.between(dto.getCheckInDate(), dto.getCheckOutDate());
+        double totalPrice = nights * villa.getPricePerNight();
+
+        Booking booking = Booking.builder()
+                .user(user)
+                .villa(villa)
+                .checkInDate(dto.getCheckInDate())
+                .checkOutDate(dto.getCheckOutDate())
+                .totalPrice(totalPrice)
+                .amountPaid(0.0)
+                .remainingAmount(totalPrice)
+                .status(BookingStatus.PENDING)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .build();
+
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ── GUEST: Simulate payment ───────────────────────────────────────────────
+
+    @Transactional
+    public BookingResponse processPayment(Long bookingId, PaymentRequestDTO dto, String email) {
+        Booking booking = getBookingById(bookingId);
+        assertOwner(booking, email);
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot pay for a cancelled booking.");
+        }
+        if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID) {
+            throw new IllegalStateException("Booking is already fully paid.");
+        }
+
+        double total = booking.getTotalPrice();
+
+        if ("ADVANCE".equalsIgnoreCase(dto.getPaymentType())) {
+            double advance = Math.round(total * 0.30 * 100.0) / 100.0;
+            booking.setAmountPaid(advance);
+            booking.setRemainingAmount(Math.round((total - advance) * 100.0) / 100.0);
+            booking.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
+        } else if ("FULL".equalsIgnoreCase(dto.getPaymentType())) {
+            booking.setAmountPaid(total);
+            booking.setRemainingAmount(0.0);
+            booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
+        } else {
+            throw new IllegalArgumentException("Invalid payment type. Use ADVANCE or FULL.");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ── GUEST: View own bookings ──────────────────────────────────────────────
+
+    public List<BookingResponse> getMyBookings(String email) {
+        User user = getUserByEmail(email);
+        return bookingRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // ── GUEST: Cancel booking ─────────────────────────────────────────────────
+
+    @Transactional
+    public BookingResponse cancelBooking(Long bookingId, String email) {
+        Booking booking = getBookingById(bookingId);
+        assertOwner(booking, email);
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Booking is already cancelled.");
+        }
+        if (booking.getStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot cancel a completed booking.");
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ── ADMIN: View all bookings ──────────────────────────────────────────────
+
+    public List<BookingResponse> getAllBookings() {
+        return bookingRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // ── ADMIN: Complete remaining payment at checkout ─────────────────────────
+
+    @Transactional
+    public BookingResponse completePayment(Long bookingId) {
+        Booking booking = getBookingById(bookingId);
+
+        if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID) {
+            throw new IllegalStateException("Payment is already fully completed.");
+        }
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot complete payment for a cancelled booking.");
+        }
+
+        booking.setAmountPaid(booking.getTotalPrice());
+        booking.setRemainingAmount(0.0);
+        booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
+        booking.setStatus(BookingStatus.COMPLETED);
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private void validateDates(LocalDate checkIn, LocalDate checkOut) {
+        if (!checkIn.isBefore(checkOut)) {
+            throw new IllegalArgumentException("Check-out date must be after check-in date.");
+        }
+        if (checkIn.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Check-in date cannot be in the past.");
+        }
+    }
+
+    private void checkAvailability(Long villaId, LocalDate checkIn, LocalDate checkOut) {
+        boolean overlaps = bookingRepository.existsOverlappingBooking(
+                villaId, checkIn, checkOut, BookingStatus.CANCELLED);
+        if (overlaps) {
+            throw new IllegalStateException(
+                    "Villa is not available for the selected dates. Please choose different dates.");
+        }
+    }
+
+    private void assertOwner(Booking booking, String email) {
+        if (!booking.getUser().getEmail().equals(email)) {
+            throw new AccessDeniedException("You are not authorized to modify this booking.");
+        }
+    }
+
+    private User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+    }
+
+    private Villa getVillaById(Long id) {
+        return villaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Villa not found with id: " + id));
+    }
+
+    private Booking getBookingById(Long id) {
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + id));
+    }
+
+    public BookingResponse toResponse(Booking b) {
+        long nights = ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
+        return BookingResponse.builder()
+                .id(b.getId())
+                .userId(b.getUser().getId())
+                .guestName(b.getUser().getFirstName() + " " + b.getUser().getLastName())
+                .guestEmail(b.getUser().getEmail())
+                .villaId(b.getVilla().getId())
+                .villaName(b.getVilla().getName())
+                .checkInDate(b.getCheckInDate())
+                .checkOutDate(b.getCheckOutDate())
+                .nights((int) nights)
+                .pricePerNight(b.getVilla().getPricePerNight())
+                .totalPrice(b.getTotalPrice())
+                .amountPaid(b.getAmountPaid())
+                .remainingAmount(b.getRemainingAmount())
+                .status(b.getStatus())
+                .paymentStatus(b.getPaymentStatus())
+                .createdAt(b.getCreatedAt())
+                .build();
+    }
+}

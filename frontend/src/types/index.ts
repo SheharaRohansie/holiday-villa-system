@@ -84,3 +84,36 @@ export interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
 }
+
+// ---- Booking Types ----
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'FULLY_PAID';
+
+export interface BookingRequest {
+  villaId: number;
+  checkInDate: string;   // ISO date "YYYY-MM-DD"
+  checkOutDate: string;
+}
+
+export interface PaymentRequest {
+  paymentType: 'ADVANCE' | 'FULL';
+}
+
+export interface Booking {
+  id: number;
+  userId: number;
+  guestName: string;
+  guestEmail: string;
+  villaId: number;
+  villaName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  nights: number;
+  pricePerNight: number;
+  totalPrice: number;
+  amountPaid: number;
+  remainingAmount: number;
+  status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  createdAt: string;
+}

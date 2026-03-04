@@ -1,0 +1,571 @@
+/* ===================================================
+   BOOKING PAGE
+   =================================================== */
+
+.booking-page {
+  min-height: 100vh;
+  background: #f0f4f8;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.booking-loading,
+.booking-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.btn-back-booking {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  margin-bottom: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.btn-back-booking:hover { color: #1d4ed8; }
+
+.booking-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .booking-container { grid-template-columns: 1fr; }
+}
+
+/* ── Villa Card ── */
+.booking-villa-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.booking-villa-img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.booking-villa-info {
+  padding: 1.5rem;
+}
+
+.booking-villa-info h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+  color: #1e293b;
+}
+
+.booking-villa-desc {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.booking-villa-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.booking-price-night {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+.booking-price-night span {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.booking-amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.amenity-tag {
+  background: #eff6ff;
+  color: #3b82f6;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+/* ── Booking Form Card ── */
+.booking-form-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 2rem;
+}
+
+.booking-form-title {
+  font-size: 1.3rem;
+  color: #1e293b;
+  margin: 0 0 1.5rem;
+  font-weight: 700;
+}
+
+.booking-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.booking-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.booking-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.booking-field input[type="date"] {
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.booking-field input[type="date"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+/* ── Price Summary ── */
+.booking-price-summary {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.booking-price-placeholder {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 1rem;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #475569;
+  padding: 0.2rem 0;
+}
+
+.price-divider {
+  border: none;
+  border-top: 1.5px solid #e2e8f0;
+  margin: 0.5rem 0;
+}
+
+.price-total {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.price-advance {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.price-remaining {
+  color: #b45309;
+  font-weight: 600;
+}
+
+/* ── Payment Options ── */
+.payment-options {
+  margin-bottom: 1.5rem;
+}
+
+.payment-options h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 0.75rem;
+}
+
+.payment-option-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.payment-option-label:hover {
+  border-color: #93c5fd;
+  background: #f0f9ff;
+}
+
+.payment-option-label.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.payment-option-label input[type="radio"] {
+  margin-top: 0.15rem;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.payment-option-content { flex: 1; }
+
+.payment-option-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.2rem;
+}
+
+.payment-option-detail {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* ── Confirm Button ── */
+.btn-booking-confirm {
+  width: 100%;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.btn-booking-confirm:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-booking-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Error Banner ── */
+.booking-error-banner {
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+
+/* ===================================================
+   SUCCESS MODAL
+   =================================================== */
+
+.booking-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.booking-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: modalIn 0.25s ease-out;
+}
+
+@keyframes modalIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.booking-modal-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.booking-modal h2 {
+  font-size: 1.5rem;
+  color: #166534;
+  margin: 0 0 1rem;
+}
+
+.booking-modal-body {
+  font-size: 0.92rem;
+  color: #374151;
+  white-space: pre-line;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.booking-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-booking-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-booking-primary:hover { opacity: 0.88; }
+
+.btn-booking-secondary {
+  background: #f1f5f9;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-booking-secondary:hover { background: #e2e8f0; }
+
+/* ===================================================
+   MY BOOKINGS LIST (Guest Dashboard)
+   =================================================== */
+
+.bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.booking-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s;
+}
+
+.booking-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+.booking-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem 1.25rem 0.75rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.booking-villa-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.2rem;
+}
+
+.booking-id {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.booking-badges {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.booking-card-body {
+  padding: 1rem 1.25rem;
+}
+
+.booking-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .booking-detail-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.booking-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.detail-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.paid-amount   { color: #166534; }
+.remaining-amount { color: #b45309; }
+
+.booking-partial-notice {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  color: #92400e;
+  margin-top: 0.5rem;
+}
+
+.booking-card-actions {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-cancel-booking {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-cancel-booking:hover { background: #fee2e2; }
+
+/* ===================================================
+   STATUS BADGE COLOURS
+   =================================================== */
+
+.badge-status,
+.badge-payment {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.status-pending   { background: #fef9c3; color: #854d0e; }
+.status-confirmed { background: #dcfce7; color: #166534; }
+.status-cancelled { background: #fee2e2; color: #991b1b; }
+.status-completed { background: #dbeafe; color: #1e40af; }
+
+.payment-unpaid        { background: #fee2e2; color: #991b1b; }
+.payment-partially-paid{ background: #fef3c7; color: #92400e; }
+.payment-fully-paid    { background: #dcfce7; color: #166534; }
+
+/* ===================================================
+   ADMIN BOOKINGS TABLE EXTRAS
+   =================================================== */
+
+.bookings-table th,
+.bookings-table td {
+  white-space: nowrap;
+}
+
+.guest-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.guest-cell small {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.btn-complete-payment {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #6ee7b7;
+  border-radius: 7px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.btn-complete-payment:hover { background: #d1fae5; }
