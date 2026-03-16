@@ -8,12 +8,13 @@ import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deleteProm
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
+import AdminReviews from './AdminReviews';
 import RevenueDashboard from './RevenueDashboard';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
 import '../styles/Booking.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'promotions' | 'add-promotion' | 'edit-promotion';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'promotions' | 'add-promotion' | 'edit-promotion' | 'reviews';
 
 const emptyVillaForm = (): VillaRequest => ({
   name: '', description: '', pricePerNight: '',
@@ -366,6 +367,7 @@ const AdminDashboard: React.FC = () => {
             { key: 'staff', icon: '👥', label: 'Staff Members' },
             { key: 'guests', icon: '🧳', label: 'Guests' },
             { key: 'create-staff', icon: '➕', label: 'Create Staff' },
+            { key: 'reviews', icon: '⭐', label: 'Review Management' },
             { key: 'revenue', icon: '💰', label: 'Revenue Analytics' },
             { key: 'profile', icon: '⚙️', label: 'My Profile' },
           ] as { key: ActiveTab; icon: string; label: string }[]).map(item => (
@@ -689,6 +691,11 @@ const AdminDashboard: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* REVIEW MANAGEMENT */}
+        {activeTab === 'reviews' && (
+          <AdminReviews />
         )}
 
         {/* REVENUE ANALYTICS */}

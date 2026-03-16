@@ -4,6 +4,7 @@ import com.holidayVilla.holiday_villa_system.dto.VillaRequestDTO;
 import com.holidayVilla.holiday_villa_system.dto.VillaResponse;
 import com.holidayVilla.holiday_villa_system.entity.Villa;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
+import com.holidayVilla.holiday_villa_system.repository.ReviewRepository;
 import com.holidayVilla.holiday_villa_system.repository.VillaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 public class VillaService {
 
     private final VillaRepository villaRepository;
+    private final ReviewRepository reviewRepository;
 
     public VillaResponse addVilla(VillaRequestDTO dto) {
         Villa villa = Villa.builder()
@@ -67,6 +69,8 @@ public class VillaService {
     }
 
     public VillaResponse toResponse(Villa villa) {
+        Double avg = reviewRepository.findAverageRatingByVillaId(villa.getId()).orElse(0.0);
+        long count = reviewRepository.countByVilla_IdAndIsVisibleTrue(villa.getId());
         return VillaResponse.builder()
                 .id(villa.getId())
                 .name(villa.getName())
@@ -77,6 +81,8 @@ public class VillaService {
                 .imageUrls(villa.getImageUrlsList())
                 .createdAt(villa.getCreatedAt())
                 .updatedAt(villa.getUpdatedAt())
+                .averageRating(Math.round(avg * 10.0) / 10.0)
+                .reviewCount(count)
                 .build();
     }
 }

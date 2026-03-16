@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVillaByIdApi } from '../api/villaApi';
 import { getActivePromotionsApi } from '../api/promotionApi';
+import { getVillaReviewsApi } from '../api/reviewApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa, Promotion } from '../types';
+import type { Villa, Promotion, Review } from '../types';
+import ReviewCard from '../components/ReviewCard';
+import StarRating from '../components/StarRating';
 import '../styles/Villa.css';
+import '../styles/Review.css';
 
 const VillaDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +19,9 @@ const VillaDetails: React.FC = () => {
   const [error, setError] = useState('');
   const [activeImg, setActiveImg] = useState(0);
   const [promotion, setPromotion] = useState<Promotion | null>(null);
+  const [villaReviews, setVillaReviews] = useState<Review[]>([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -27,6 +34,14 @@ const VillaDetails: React.FC = () => {
       .then(promos => {
         const match = promos.find(p => p.villaId === Number(id));
         setPromotion(match ?? null);
+      })
+      .catch(() => {});
+    // Fetch villa reviews
+    getVillaReviewsApi(Number(id))
+      .then(data => {
+        setVillaReviews(data.reviews);
+        setAvgRating(data.averageRating);
+        setTotalReviews(data.totalReviews);
       })
       .catch(() => {});
   }, [id]);
@@ -141,6 +156,31 @@ const VillaDetails: React.FC = () => {
           >
             Book Now
           </button>
+
+          {/* ── Guest Reviews ──────────────────────────────────────────── */}
+          <div className="villa-reviews-section">
+            <div className="villa-reviews-header">
+              <h3>Guest Reviews</h3>
+              {totalReviews > 0 && (
+                <div className="villa-avg-rating">
+                  <StarRating value={Math.round(avgRating)} size="sm" />
+                  <span className="villa-avg-number">{avgRating.toFixed(1)}</span>
+                  <span className="villa-avg-total">/ 5 ({totalReviews} review{totalReviews !== 1 ? 's' : ''})</span>
+                </div>
+              )}
+            </div>
+            {villaReviews.length === 0 ? (
+              <div className="villa-reviews-empty">
+                No reviews yet for this villa. Be the first to share your experience!
+              </div>
+            ) : (
+              <div className="villa-reviews-list">
+                {villaReviews.map(r => (
+                  <ReviewCard key={r.id} review={r} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

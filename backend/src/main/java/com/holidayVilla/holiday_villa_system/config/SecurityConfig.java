@@ -45,6 +45,12 @@ public class SecurityConfig {
                 // Public promotion endpoints
                 .requestMatchers(HttpMethod.GET, "/api/promotions/active").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/promotions/applicable").permitAll()
+                // Public review read endpoints
+                .requestMatchers(HttpMethod.GET, "/api/reviews/villa/**").permitAll()
+                // Guest review write endpoints
+                .requestMatchers(HttpMethod.POST, "/api/reviews").hasRole("GUEST")
+                .requestMatchers(HttpMethod.PUT, "/api/reviews/**").hasRole("GUEST")
+                .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").hasRole("GUEST")
                 // Admin only
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Staff

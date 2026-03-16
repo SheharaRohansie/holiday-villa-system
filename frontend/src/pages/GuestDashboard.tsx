@@ -106,6 +106,12 @@ const GuestDashboard: React.FC = () => {
           >
             <span>💳</span> My Payments
           </button>
+          <button
+            className="nav-item"
+            onClick={() => navigate('/reviews')}
+          >
+            <span>⭐</span> Leave a Review
+          </button>
         </nav>
         <button className="btn-logout-sidebar" onClick={handleLogout}>🚪 Logout</button>
       </aside>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Villa } from '../types';
+import StarRating from './StarRating';
 import '../styles/Villa.css';
 
 interface VillaCardProps {
@@ -62,6 +63,17 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
       <div className="villa-card-body">
         <h3 className="villa-card-name">{villa.name}</h3>
         <p className="villa-card-desc">{shortDesc}</p>
+        {villa.reviewCount > 0 ? (
+          <div className="villa-card-rating">
+            <StarRating value={Math.round(villa.averageRating)} size="sm" />
+            <span className="villa-card-rating-score">{villa.averageRating.toFixed(1)}</span>
+            <span className="villa-card-rating-count">/ 5 ({villa.reviewCount} review{villa.reviewCount !== 1 ? 's' : ''})</span>
+          </div>
+        ) : (
+          <div className="villa-card-rating villa-card-rating--empty">
+            <span>No reviews yet</span>
+          </div>
+        )}
         <div className="villa-card-footer">
           <span className="villa-card-price">LKR {villa.pricePerNight} <small>/night</small></span>
           <Link to={`/villas/${villa.id}`} className="btn-view-details">View Details</Link>

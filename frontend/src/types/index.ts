@@ -76,6 +76,8 @@ export interface Villa {
   imageUrls: string[];
   createdAt: string;
   updatedAt: string;
+  averageRating: number;
+  reviewCount: number;
 }
 
 export interface AuthContextType {
@@ -199,6 +201,40 @@ export interface ApplicablePromotion {
   originalPrice: number;
   discountAmount: number;
   finalPrice: number;
+}
+
+// ---- Review Types ----
+export interface ReviewRequest {
+  bookingId: number;
+  villaId: number;
+  rating: number;
+  reviewText: string;
+}
+
+export interface ReviewUpdateRequest {
+  rating: number;
+  reviewText: string;
+}
+
+export interface Review {
+  id: number;
+  userId: number;
+  guestName: string;
+  villaId: number;
+  villaName: string;
+  bookingId: number;
+  rating: number;
+  reviewText: string;
+  createdAt: string;
+  updatedAt: string;
+  isVisible: boolean;
+  canEdit: boolean;
+}
+
+export interface VillaReviewsResponse {
+  reviews: Review[];
+  averageRating: number;
+  totalReviews: number;
 }
 
 // ---- Analytics Types ----

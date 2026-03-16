@@ -7,6 +7,7 @@ import type { Villa, Promotion } from '../types';
 import VillaCard from '../components/VillaCard';
 import '../styles/HomePage.css';
 import '../styles/Villa.css';
+import '../styles/Review.css';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
@@ -32,7 +33,7 @@ const HomePage: React.FC = () => {
       <section className="hero">
         <div className="hero-overlay">
           <div className="hero-content">
-            <h1 className="hero-title">Welcome to Holiday Villa Resort</h1>
+            <h1 className="hero-title">Welcome to The Country House</h1>
             <p className="hero-subtitle">
               Experience luxury and serenity by the ocean — where every moment is a memory.
             </p>
@@ -134,8 +135,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* About Section */}
-      <section className="section about-section">
-        <div className="about-content">
+      <section className="section about-section">        <div className="about-content">
           <div className="about-text">
             <h2>About Holiday Villa Resort</h2>
             <p>
@@ -182,7 +182,7 @@ const HomePage: React.FC = () => {
       <footer className="footer">
         <div className="footer-grid">
           <div className="footer-brand">
-            <h3>🌊 Holiday Villa Resort</h3>
+            <h3>💒 The Country House</h3>
             <p>Your paradise awaits on the shores of Sri Lanka.</p>
           </div>
           <div className="footer-links">

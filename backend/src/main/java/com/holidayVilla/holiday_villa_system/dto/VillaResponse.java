@@ -20,4 +20,6 @@ public class VillaResponse {
     private List<String> imageUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Double averageRating;
+    private Long reviewCount;
 }

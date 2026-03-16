@@ -24,8 +24,8 @@ const Navbar: React.FC = () => {
     <nav className="navbar">
       <div className="navbar-brand">
         <Link to="/" className="brand-link">
-          <span className="brand-icon">🌊</span>
-          <span className="brand-name">Holiday Villa</span>
+          <span className="brand-icon">💒</span>
+          <span className="brand-name">The Country House</span>
         </Link>
       </div>
 

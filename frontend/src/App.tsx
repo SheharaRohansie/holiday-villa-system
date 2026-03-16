@@ -11,6 +11,7 @@ import VillaDetails from './pages/VillaDetails';
 import BookingPage from './pages/BookingPage';
 import PaymentPage from './pages/PaymentPage';
 import MyPayments from './pages/MyPayments';
+import ReviewPage from './pages/ReviewPage';
 import { useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -95,6 +96,17 @@ function AppContent() {
           element={
             <ProtectedRoute roles={['GUEST']}>
               <MyPayments />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Leave a Review — GUEST only */}
+        <Route
+          path="/reviews"
+          element={
+            <ProtectedRoute roles={['GUEST']}>
+              <Navbar />
+              <ReviewPage />
             </ProtectedRoute>
           }
         />

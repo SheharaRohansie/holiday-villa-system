@@ -1,0 +1,31 @@
+package com.holidayVilla.holiday_villa_system.repository;
+
+import com.holidayVilla.holiday_villa_system.entity.Review;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    /** All visible reviews for a specific villa */
+    List<Review> findByVilla_IdAndIsVisibleTrue(Long villaId);
+
+    /** All reviews (including hidden) for a specific villa */
+    List<Review> findByVilla_Id(Long villaId);
+
+    /** All reviews by a user */
+    List<Review> findByUser_Id(Long userId);
+
+    /** Check if a booking already has a review */
+    boolean existsByBooking_Id(Long bookingId);
+
+    /** Average rating for a villa (visible reviews only) */
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.villa.id = :villaId AND r.isVisible = true")
+    Optional<Double> findAverageRatingByVillaId(@Param("villaId") Long villaId);
+
+    /** Count of visible reviews for a villa */
+    long countByVilla_IdAndIsVisibleTrue(Long villaId);
+}
