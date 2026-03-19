@@ -24,9 +24,19 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Prefer a React-managed logout (clears state + redirects).
+      try {
+        window.dispatchEvent(new Event('auth:force-logout'));
+      } catch {
+        // ignore
+      }
+
+      // Fallback in case provider isn't mounted.
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

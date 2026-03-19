@@ -10,3 +10,8 @@ export const registerApi = async (data: RegisterRequest): Promise<AuthResponse> 
   const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
   return response.data;
 };
+
+export const refreshTokenApi = async (): Promise<{ token: string }> => {
+  const response = await axiosInstance.post<{ token: string }>('/auth/refresh');
+  return response.data;
+};

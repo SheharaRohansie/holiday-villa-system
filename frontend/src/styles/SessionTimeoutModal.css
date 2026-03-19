@@ -1,0 +1,66 @@
+/* Session Timeout Modal */
+
+.stm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.stm-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem 1.6rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.stm-title {
+  margin: 0 0 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #023047;
+}
+
+.stm-text {
+  margin: 0;
+  color: #444;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.stm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.stm-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.stm-btn:hover {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.stm-btn-secondary {
+  background: #e9eef5;
+  color: #023047;
+}
+
+.stm-btn-primary {
+  background: linear-gradient(135deg, #0077b6, #00b4d8);
+  color: #fff;
+}

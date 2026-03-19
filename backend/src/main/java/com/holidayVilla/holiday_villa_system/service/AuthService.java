@@ -88,6 +88,13 @@ public class AuthService {
                 .build();
     }
 
+    public String refreshToken(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        return jwtUtil.generateToken(userDetails);
+    }
+
     private void validateIdentityDocument(String nationality, String nic, String passportNumber) {
         if ("Sri Lanka".equalsIgnoreCase(nationality)) {
             if (nic == null || nic.isBlank()) {
