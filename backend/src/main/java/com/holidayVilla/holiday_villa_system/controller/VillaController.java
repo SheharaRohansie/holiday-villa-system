@@ -2,6 +2,9 @@ package com.holidayVilla.holiday_villa_system.controller;
 
 import com.holidayVilla.holiday_villa_system.dto.VillaRequestDTO;
 import com.holidayVilla.holiday_villa_system.dto.VillaResponse;
+import com.holidayVilla.holiday_villa_system.dto.AdminVillaResponse;
+import com.holidayVilla.holiday_villa_system.dto.MessageResponse;
+import com.holidayVilla.holiday_villa_system.dto.VillaPriceResponse;
 import com.holidayVilla.holiday_villa_system.service.VillaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,20 +33,37 @@ public class VillaController {
         return ResponseEntity.ok(villaService.getVillaById(id));
     }
 
+    @GetMapping("/api/villas/{id}/price")
+    public ResponseEntity<VillaPriceResponse> getVillaPrice(
+            @PathVariable Long id,
+            @RequestParam int guests,
+            @RequestParam String mealPlan) {
+        return ResponseEntity.ok(villaService.getDynamicPrice(id, guests, mealPlan));
+    }
+
     // ---- ADMIN endpoints ----
 
     @PostMapping("/api/admin/villas")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VillaResponse> addVilla(@Valid @RequestBody VillaRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(villaService.addVilla(request));
+    public ResponseEntity<MessageResponse> addVilla(@Valid @RequestBody VillaRequestDTO request) {
+        villaService.addVilla(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new MessageResponse("Villa created successfully"));
+    }
+
+    @GetMapping("/api/admin/villas/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminVillaResponse> getAdminVillaById(@PathVariable Long id) {
+        return ResponseEntity.ok(villaService.getAdminVillaById(id));
     }
 
     @PutMapping("/api/admin/villas/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VillaResponse> updateVilla(
+    public ResponseEntity<MessageResponse> updateVilla(
             @PathVariable Long id,
             @Valid @RequestBody VillaRequestDTO request) {
-        return ResponseEntity.ok(villaService.updateVilla(id, request));
+        villaService.updateVilla(id, request);
+        return ResponseEntity.ok(new MessageResponse("Villa updated successfully"));
     }
 
     @DeleteMapping("/api/admin/villas/{id}")

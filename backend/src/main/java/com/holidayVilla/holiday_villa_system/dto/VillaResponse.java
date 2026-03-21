@@ -14,6 +14,7 @@ public class VillaResponse {
     private Long id;
     private String name;
     private String description;
+    private String type;
     private Double pricePerNight;
     private Integer maxGuests;
     private List<String> amenities;
@@ -22,4 +23,12 @@ public class VillaResponse {
     private LocalDateTime updatedAt;
     private Double averageRating;
     private Long reviewCount;
+
+    // Minimum price label data for cards
+    private Double minPrice;
+    private Integer minPriceGuestCount;
+    private String minPriceMealPlan;
+
+    // Helps UI render guest selector without a pricing table
+    private List<Integer> allowedGuestCounts;
 }

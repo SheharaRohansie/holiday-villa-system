@@ -72,9 +72,11 @@ public class PromotionController {
     public ResponseEntity<ApplicablePromotionResponse> getApplicablePromotion(
             @RequestParam Long villaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam(required = false) Integer guests,
+            @RequestParam(required = false) String mealPlan) {
         ApplicablePromotionResponse response =
-                promotionService.getApplicablePromotion(villaId, checkIn, checkOut);
+                promotionService.getApplicablePromotion(villaId, checkIn, checkOut, guests, mealPlan);
         if (response == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(response);
     }

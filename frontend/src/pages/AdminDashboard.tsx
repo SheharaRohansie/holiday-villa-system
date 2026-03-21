@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
-import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi } from '../api/villaApi';
+import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi } from '../api/villaApi';
 import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
 import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deletePromotionApi } from '../api/promotionApi';
-import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest } from '../types';
+import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest, MealPlan } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
 import AdminReviews from './AdminReviews';
@@ -17,8 +17,12 @@ import '../styles/Booking.css';
 type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'promotions' | 'add-promotion' | 'edit-promotion' | 'reviews';
 
 const emptyVillaForm = (): VillaRequest => ({
-  name: '', description: '', pricePerNight: '',
-  maxGuests: '', amenities: [], imageUrls: ['', '', ''],
+  name: '',
+  description: '',
+  type: 'DELUXE',
+  amenities: [],
+  imageUrls: ['', '', ''],
+  pricing: [],
 });
 
 const emptyPromoForm = (): PromotionRequest => ({
@@ -210,19 +214,47 @@ const AdminDashboard: React.FC = () => {
     const errs: Partial<Record<keyof VillaRequest, string>> = {};
     if (!villaForm.name.trim()) errs.name = 'Villa name is required';
     if (!villaForm.description.toString().trim()) errs.description = 'Description is required';
-    if (!villaForm.pricePerNight || Number(villaForm.pricePerNight) <= 0) errs.pricePerNight = 'Price must be positive';
     const images = villaForm.imageUrls.filter(u => u.trim() !== '');
     if (images.length === 0) errs.imageUrls = 'At least one image URL is required';
+    if (images.length > 3) errs.imageUrls = 'You can only add up to 3 images';
+
+    // Pricing matrix validation
+    const mealPlans: MealPlan[] = ['ROOM_ONLY', 'BED_AND_BREAKFAST', 'HALF_BOARD', 'FULL_BOARD'];
+    const allowedGuests = villaForm.type === 'DELUXE'
+      ? [2, 3]
+      : [2, 3, 4, 5, 6];
+
+    const key = (g: number, m: MealPlan) => `${g}:${m}`;
+    const map = new Map<string, number>();
+    for (const row of (villaForm.pricing ?? [])) {
+      const price = Number(row.price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      map.set(key(row.guestCount, row.mealPlan), price);
+    }
+
+    const missing: string[] = [];
+    for (const g of allowedGuests) {
+      for (const m of mealPlans) {
+        if (!map.has(key(g, m))) missing.push(`${g} - ${m.replaceAll('_', ' ')}`);
+      }
+    }
+    if (missing.length > 0) {
+      errs.pricing = `Pricing is incomplete. Missing: ${missing.slice(0, 6).join(', ')}${missing.length > 6 ? '…' : ''}`;
+    }
+
     setVillaErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const buildVillaPayload = (): VillaRequest => ({
     ...villaForm,
-    pricePerNight: Number(villaForm.pricePerNight),
-    maxGuests: villaForm.maxGuests ? Number(villaForm.maxGuests) : 0,
     amenities: (villaForm.amenities as string[]).filter(Boolean),
     imageUrls: villaForm.imageUrls.filter(u => u.trim() !== ''),
+    pricing: (villaForm.pricing ?? []).map(p => ({
+      guestCount: Number(p.guestCount),
+      mealPlan: p.mealPlan,
+      price: Number(p.price),
+    })),
   });
 
   const handleAddVilla = async (e: React.FormEvent) => {
@@ -265,20 +297,29 @@ const AdminDashboard: React.FC = () => {
     } catch { setMessage('Failed to delete villa.'); }
   };
 
-  const startEditVilla = (villa: Villa) => {
+  const startEditVilla = async (villa: Villa) => {
     setEditingVillaId(villa.id);
-    const urls = [...villa.imageUrls];
-    while (urls.length < 3) urls.push('');
-    setVillaForm({
-      name: villa.name,
-      description: villa.description,
-      pricePerNight: villa.pricePerNight,
-      maxGuests: villa.maxGuests ?? '',
-      amenities: villa.amenities,
-      imageUrls: urls,
-    });
-    setVillaErrors({});
-    setActiveTab('edit-villa');
+    try {
+      const data = await getAdminVillaByIdApi(villa.id);
+      const urls = [...(data.villa.imageUrls ?? [])];
+      while (urls.length < 3) urls.push('');
+      setVillaForm({
+        name: data.villa.name,
+        description: data.villa.description,
+        type: (data.villa.type ?? 'DELUXE'),
+        amenities: data.villa.amenities ?? [],
+        imageUrls: urls,
+        pricing: (data.pricing ?? []).map(r => ({
+          guestCount: r.guestCount,
+          mealPlan: r.mealPlan,
+          price: r.price,
+        })),
+      });
+      setVillaErrors({});
+      setActiveTab('edit-villa');
+    } catch {
+      setMessage('Failed to load villa pricing for editing.');
+    }
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -742,57 +783,131 @@ const VillaFormFields: React.FC<{
   form: VillaRequest;
   setForm: React.Dispatch<React.SetStateAction<VillaRequest>>;
   errors: Partial<Record<keyof VillaRequest, string>>;
-}> = ({ form, setForm, errors }) => (
-  <div className="villa-form-grid">
-    <div className="form-group">
-      <label>Villa Name *</label>
-      <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-        placeholder="e.g. Ocean Breeze Villa" className={errors.name ? 'input-error' : ''} />
-      {errors.name && <span className="field-error">{errors.name}</span>}
-    </div>
-    <div className="form-group villa-form-full">
-      <label>Description *</label>
-      <textarea rows={4} value={form.description as string}
-        onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-        placeholder="Full villa description…" className={errors.description ? 'input-error' : ''}
-        style={{ resize: 'vertical' }} />
-      {errors.description && <span className="field-error">{errors.description}</span>}
-    </div>
-    <div className="form-group">
-      <label>Price Per Night (LKR) *</label>
-      <input type="number" min={1} value={form.pricePerNight as string}
-        onChange={e => setForm(p => ({ ...p, pricePerNight: e.target.value }))}
-        placeholder="e.g. 250" className={errors.pricePerNight ? 'input-error' : ''} />
-      {errors.pricePerNight && <span className="field-error">{errors.pricePerNight}</span>}
-    </div>
-    <div className="form-group">
-      <label>Max Guests</label>
-      <input type="number" min={1} value={form.maxGuests as string}
-        onChange={e => setForm(p => ({ ...p, maxGuests: e.target.value }))}
-        placeholder="e.g. 6" />
-    </div>
-    <div className="form-group villa-form-full">
-      <label>Amenities (comma separated)</label>
-      <input value={(form.amenities as string[]).join(', ')}
-        onChange={e => setForm(p => ({ ...p, amenities: e.target.value.split(',').map(s => s.trim()) }))}
-        placeholder="e.g. Pool, WiFi, Air Conditioning, Beach Access" />
-    </div>
-    {[0, 1, 2].map(i => (
-      <div className="form-group" key={i}>
-        <label>Image URL {i + 1} {i === 0 ? '*' : '(optional)'}</label>
-        <input value={form.imageUrls[i] || ''}
-          onChange={e => setForm(p => {
-            const urls = [...p.imageUrls];
-            urls[i] = e.target.value;
-            return { ...p, imageUrls: urls };
-          })}
-          placeholder="https://example.com/image.jpg"
-          className={i === 0 && errors.imageUrls ? 'input-error' : ''} />
-        {i === 0 && errors.imageUrls && <span className="field-error">{errors.imageUrls}</span>}
+}> = ({ form, setForm, errors }) => {
+  const mealPlans: { value: MealPlan; label: string }[] = [
+    { value: 'ROOM_ONLY', label: 'Room Only' },
+    { value: 'BED_AND_BREAKFAST', label: 'Bed & Breakfast' },
+    { value: 'HALF_BOARD', label: 'Half Board' },
+    { value: 'FULL_BOARD', label: 'Full Board' },
+  ];
+
+  const allowedGuests = form.type === 'DELUXE'
+    ? [2, 3]
+    : [2, 3, 4, 5, 6];
+
+  const getPrice = (guestCount: number, mealPlan: MealPlan): string => {
+    const row = (form.pricing ?? []).find(p => p.guestCount === guestCount && p.mealPlan === mealPlan);
+    if (!row) return '';
+    const v = row.price;
+    return v === 0 ? '' : String(v ?? '');
+  };
+
+  const setPrice = (guestCount: number, mealPlan: MealPlan, price: string) => {
+    setForm(prev => {
+      const next = [...(prev.pricing ?? [])];
+      const idx = next.findIndex(p => p.guestCount === guestCount && p.mealPlan === mealPlan);
+      const parsed = price === '' ? '' : Number(price);
+      const row = { guestCount, mealPlan, price: parsed };
+      if (idx >= 0) next[idx] = row;
+      else next.push(row);
+      return { ...prev, pricing: next };
+    });
+  };
+
+  const onTypeChange = (nextType: VillaRequest['type']) => {
+    // Reset pricing entries to match the required matrix for selected type
+    const nextAllowed = nextType === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6];
+    setForm(prev => {
+      const keep = (prev.pricing ?? []).filter(p => nextAllowed.includes(p.guestCount));
+      return { ...prev, type: nextType, pricing: keep };
+    });
+  };
+
+  return (
+    <div className="villa-form-grid">
+      <div className="form-group">
+        <label>Villa Name *</label>
+        <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+          placeholder="e.g. Ocean Breeze Villa" className={errors.name ? 'input-error' : ''} />
+        {errors.name && <span className="field-error">{errors.name}</span>}
       </div>
-    ))}
-  </div>
-);
+
+      <div className="form-group">
+        <label>Type *</label>
+        <select value={form.type} onChange={e => onTypeChange(e.target.value as VillaRequest['type'])}>
+          <option value="DELUXE">DELUXE (2–3 guests)</option>
+          <option value="SUPERIOR">SUPERIOR (2–6 guests)</option>
+        </select>
+      </div>
+
+      <div className="form-group villa-form-full">
+        <label>Description *</label>
+        <textarea rows={4} value={form.description as string}
+          onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+          placeholder="Full villa description…" className={errors.description ? 'input-error' : ''}
+          style={{ resize: 'vertical' }} />
+        {errors.description && <span className="field-error">{errors.description}</span>}
+      </div>
+
+      <div className="form-group villa-form-full">
+        <label>Amenities (comma separated)</label>
+        <input value={(form.amenities as string[]).join(', ')}
+          onChange={e => setForm(p => ({ ...p, amenities: e.target.value.split(',').map(s => s.trim()) }))}
+          placeholder="e.g. Pool, WiFi, Air Conditioning" />
+      </div>
+
+      <div className="form-group villa-form-full">
+        <label>Pricing (required) *</label>
+        {errors.pricing && <span className="field-error">{errors.pricing}</span>}
+
+        <div className="table-wrapper" style={{ marginTop: 10 }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Guests</th>
+                {mealPlans.map(mp => <th key={mp.value}>{mp.label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {allowedGuests.map(g => (
+                <tr key={g}>
+                  <td><strong>{g}</strong></td>
+                  {mealPlans.map(mp => (
+                    <td key={mp.value}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={getPrice(g, mp.value)}
+                        onChange={e => setPrice(g, mp.value, e.target.value)}
+                        placeholder="LKR"
+                        style={{ width: '100%', minWidth: 120 }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {[0, 1, 2].map(i => (
+        <div className="form-group" key={i}>
+          <label>Image URL {i + 1} {i === 0 ? '*' : '(optional)'}</label>
+          <input value={form.imageUrls[i] || ''}
+            onChange={e => setForm(p => {
+              const urls = [...p.imageUrls];
+              urls[i] = e.target.value;
+              return { ...p, imageUrls: urls };
+            })}
+            placeholder="https://example.com/image.jpg"
+            className={i === 0 && errors.imageUrls ? 'input-error' : ''} />
+          {i === 0 && errors.imageUrls && <span className="field-error">{errors.imageUrls}</span>}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const PromotionFormFields: React.FC<{
   form: PromotionRequest;

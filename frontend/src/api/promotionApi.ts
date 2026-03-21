@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { Promotion, PromotionRequest, ApplicablePromotion } from '../types';
+import type { Promotion, PromotionRequest, ApplicablePromotion, MealPlan } from '../types';
 
 // ── Admin endpoints ────────────────────────────────────────────────────────
 
@@ -26,10 +26,12 @@ export const getActivePromotionsApi = (): Promise<Promotion[]> =>
 export const getApplicablePromotionApi = (
   villaId: number,
   checkIn: string,
-  checkOut: string
+  checkOut: string,
+  guests?: number,
+  mealPlan?: MealPlan
 ): Promise<ApplicablePromotion | null> =>
   axiosInstance
-    .get('/promotions/applicable', { params: { villaId, checkIn, checkOut } })
+    .get('/promotions/applicable', { params: { villaId, checkIn, checkOut, guests, mealPlan } })
     .then(r => r.data)
     .catch(err => {
       // 204 No Content → axios may throw; return null

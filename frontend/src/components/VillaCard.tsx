@@ -27,6 +27,11 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
       ? villa.description.slice(0, 100) + '…'
       : villa.description;
 
+  const minPrice = (villa.minPrice ?? villa.pricePerNight);
+  const minGuests = (villa.minPriceGuestCount ?? (villa.type === 'DELUXE' ? 2 : 2));
+  const minMealPlan = (villa.minPriceMealPlan ?? 'ROOM_ONLY');
+  const mealPlanLabel = String(minMealPlan).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
   return (
     <div className="villa-card-live">
       <div className="villa-card-img villa-card-slider">
@@ -62,6 +67,7 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
       </div>
       <div className="villa-card-body">
         <h3 className="villa-card-name">{villa.name}</h3>
+        {villa.type && <div className="villa-card-type">{villa.type}</div>}
         <p className="villa-card-desc">{shortDesc}</p>
         {villa.reviewCount > 0 ? (
           <div className="villa-card-rating">
@@ -75,7 +81,9 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
           </div>
         )}
         <div className="villa-card-footer">
-          <span className="villa-card-price">LKR {villa.pricePerNight} <small>/night</small></span>
+          <span className="villa-card-price">
+            From LKR {Number(minPrice).toLocaleString()} <small>({minGuests} Guests – {mealPlanLabel})</small>
+          </span>
           <Link to={`/villas/${villa.id}`} className="btn-view-details">View Details</Link>
         </div>
       </div>

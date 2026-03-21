@@ -18,6 +18,8 @@ public class BookingResponse {
     private String guestEmail;
     private Long villaId;
     private String villaName;
+    private Integer guestCount;
+    private String mealPlan;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private int nights;

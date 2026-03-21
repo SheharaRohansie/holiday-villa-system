@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getVillaByIdApi } from '../api/villaApi';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
 import { createBookingApi, processPaymentApi } from '../api/bookingApi';
 import { getApplicablePromotionApi } from '../api/promotionApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa, ApplicablePromotion } from '../types';
+import type { Villa, ApplicablePromotion, MealPlan } from '../types';
 import '../styles/Booking.css';
 
 const formatLKR = (amount: number) =>
@@ -20,11 +20,17 @@ const tomorrow = () => {
 const BookingPage: React.FC = () => {
   const { villaId } = useParams<{ villaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [villa, setVilla] = useState<Villa | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [guestCount, setGuestCount] = useState<number>(2);
+  const [mealPlan, setMealPlan] = useState<MealPlan>('ROOM_ONLY');
+  const [pricePerNight, setPricePerNight] = useState<number>(0);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   const [checkIn, setCheckIn] = useState(today());
   const [checkOut, setCheckOut] = useState(tomorrow());
@@ -43,10 +49,35 @@ const BookingPage: React.FC = () => {
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     if (!villaId) { navigate('/'); return; }
+    const qs = new URLSearchParams(location.search);
+    const qsGuests = Number(qs.get('guests') || 2);
+    const qsMeal = (qs.get('mealPlan') || 'ROOM_ONLY') as MealPlan;
+    setGuestCount(Number.isFinite(qsGuests) && qsGuests > 0 ? qsGuests : 2);
+    setMealPlan(qsMeal);
+
     getVillaByIdApi(Number(villaId))
       .then(v => { setVilla(v); setLoading(false); })
       .catch(() => { setError('Villa not found.'); setLoading(false); });
-  }, [villaId]);
+  }, [villaId, location.search]);
+
+  // Fetch dynamic price
+  useEffect(() => {
+    if (!villa) return;
+
+    const allowed = (villa.allowedGuestCounts && villa.allowedGuestCounts.length > 0)
+      ? villa.allowedGuestCounts
+      : (villa.type === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6]);
+    if (!allowed.includes(guestCount)) {
+      setGuestCount(allowed[0] ?? 2);
+      return;
+    }
+
+    setPriceLoading(true);
+    getVillaPriceApi(villa.id, guestCount, mealPlan)
+      .then(r => setPricePerNight(r.pricePerNight))
+      .catch(() => setPricePerNight(villa.pricePerNight))
+      .finally(() => setPriceLoading(false));
+  }, [villa?.id, guestCount, mealPlan]);
 
   const calcNights = (): number => {
     const ci = new Date(checkIn);
@@ -56,14 +87,14 @@ const BookingPage: React.FC = () => {
   };
 
   const nights = calcNights();
-  const originalTotal = villa ? nights * villa.pricePerNight : 0;
+  const originalTotal = villa ? nights * pricePerNight : 0;
 
   // ── When dates change, check for applicable promotion ──────────────────
   const checkPromotion = useCallback(async () => {
     if (!villa || nights <= 0) { setPromotion(null); setPromoChoice(null); return; }
     setPromoLoading(true);
     try {
-      const result = await getApplicablePromotionApi(villa.id, checkIn, checkOut);
+      const result = await getApplicablePromotionApi(villa.id, checkIn, checkOut, guestCount, mealPlan);
       setPromotion(result ?? null);
       setPromoChoice(null); // reset choice when dates change
     } catch {
@@ -71,7 +102,7 @@ const BookingPage: React.FC = () => {
     } finally {
       setPromoLoading(false);
     }
-  }, [villa, checkIn, checkOut, nights]);
+  }, [villa, checkIn, checkOut, nights, guestCount, mealPlan]);
 
   useEffect(() => { checkPromotion(); }, [checkIn, checkOut, villa]);
 
@@ -101,6 +132,8 @@ const BookingPage: React.FC = () => {
       // Step 1: Create booking with optional promotion
       const booking = await createBookingApi({
         villaId: villa.id,
+        guestCount,
+        mealPlan,
         checkInDate: checkIn,
         checkOutDate: checkOut,
         appliedPromotionId: (promotion && promoChoice === 'apply') ? promotion.promotionId : null,
@@ -186,8 +219,12 @@ const BookingPage: React.FC = () => {
             <div className="booking-villa-meta">
               <span>👥 Max {villa.maxGuests} guests</span>
               <span className="booking-price-night">
-                {formatLKR(villa.pricePerNight)} <span>/night</span>
+                {priceLoading ? 'Loading…' : formatLKR(pricePerNight)} <span>/night</span>
               </span>
+            </div>
+            <div className="booking-villa-meta" style={{ marginTop: 6 }}>
+              <span>Guests: {guestCount}</span>
+              <span>Meal Plan: {mealPlan.replaceAll('_', ' ')}</span>
             </div>
             {villa.amenities.length > 0 && (
               <div className="booking-amenities">
@@ -232,7 +269,7 @@ const BookingPage: React.FC = () => {
             {nights > 0 ? (
               <div className="booking-price-summary">
                 <div className="price-row">
-                  <span>{formatLKR(villa.pricePerNight)} × {nights} night{nights !== 1 ? 's' : ''}</span>
+                  <span>{formatLKR(pricePerNight)} × {nights} night{nights !== 1 ? 's' : ''}</span>
                   <span>{formatLKR(originalTotal)}</span>
                 </div>
                 {promoChoice === 'apply' && promotion && (

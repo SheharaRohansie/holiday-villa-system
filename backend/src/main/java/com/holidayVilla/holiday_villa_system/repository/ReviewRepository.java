@@ -19,6 +19,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     /** All reviews by a user */
     List<Review> findByUser_Id(Long userId);
 
+    void deleteByVilla_Id(Long villaId);
+
     /** Check if a booking already has a review */
     boolean existsByBooking_Id(Long bookingId);
 

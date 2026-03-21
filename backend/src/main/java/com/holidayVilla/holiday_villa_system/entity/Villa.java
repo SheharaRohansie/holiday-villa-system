@@ -29,7 +29,10 @@ public class Villa {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @NotNull(message = "Price per night is required")
+    @Enumerated(EnumType.STRING)
+    @Column
+    private VillaType type;
+
     @Positive(message = "Price must be positive")
     @Column(nullable = false)
     private Double pricePerNight;

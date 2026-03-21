@@ -9,6 +9,7 @@ import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
 import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import com.holidayVilla.holiday_villa_system.repository.VillaRepository;
+import com.holidayVilla.holiday_villa_system.repository.VillaPricingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class BookingService {
     private final UserRepository userRepository;
     private final VillaRepository villaRepository;
     private final PromotionRepository promotionRepository;
+    private final VillaPricingRepository villaPricingRepository;
 
     // ── GUEST: Create a PENDING booking ──────────────────────────────────────
 
@@ -38,8 +40,16 @@ public class BookingService {
         validateDates(dto.getCheckInDate(), dto.getCheckOutDate());
         checkAvailability(villa.getId(), dto.getCheckInDate(), dto.getCheckOutDate());
 
+        MealPlan mealPlan = parseMealPlan(dto.getMealPlan());
+        validateGuestCountAgainstType(villa.getType(), dto.getGuestCount());
+        VillaPricing pricing = villaPricingRepository
+            .findByVillaIdAndGuestCountAndMealPlan(villa.getId(), dto.getGuestCount(), mealPlan)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Pricing not found for selected guests/meal plan."));
+
         long nights = ChronoUnit.DAYS.between(dto.getCheckInDate(), dto.getCheckOutDate());
-        double originalPrice = nights * villa.getPricePerNight();
+        double pricePerNight = pricing.getPrice();
+        double originalPrice = nights * pricePerNight;
 
         // ── Promotion resolution ───────────────────────────────────────────────
         Promotion appliedPromotion = null;
@@ -69,6 +79,9 @@ public class BookingService {
         Booking booking = Booking.builder()
                 .user(user)
                 .villa(villa)
+            .guestCount(dto.getGuestCount())
+            .mealPlan(mealPlan)
+            .pricePerNight(pricePerNight)
                 .checkInDate(dto.getCheckInDate())
                 .checkOutDate(dto.getCheckOutDate())
                 .totalPrice(effectiveTotal)
@@ -234,10 +247,12 @@ public class BookingService {
                 .guestEmail(b.getUser().getEmail())
                 .villaId(b.getVilla().getId())
                 .villaName(b.getVilla().getName())
+                .guestCount(b.getGuestCount())
+                .mealPlan(b.getMealPlan() != null ? b.getMealPlan().name() : null)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .nights((int) nights)
-                .pricePerNight(b.getVilla().getPricePerNight())
+                .pricePerNight(b.getPricePerNight())
                 .totalPrice(b.getTotalPrice())
                 .amountPaid(b.getAmountPaid())
                 .remainingAmount(b.getRemainingAmount())
@@ -251,6 +266,25 @@ public class BookingService {
                 .appliedPromotionTitle(b.getAppliedPromotion() != null ? b.getAppliedPromotion().getTitle() : null)
                 .promotionAccepted(b.getPromotionAccepted())
                 .build();
+    }
+
+    private MealPlan parseMealPlan(String raw) {
+        try {
+            return MealPlan.valueOf(raw.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid meal plan.");
+        }
+    }
+
+    private void validateGuestCountAgainstType(VillaType type, int guests) {
+        if (type == null) return; // legacy villas without type
+        boolean ok = switch (type) {
+            case DELUXE -> guests == 2 || guests == 3;
+            case SUPERIOR -> guests >= 2 && guests <= 6;
+        };
+        if (!ok) {
+            throw new IllegalArgumentException("Guest count does not match villa type.");
+        }
     }
 
     private double round(double v) { return Math.round(v * 100.0) / 100.0; }

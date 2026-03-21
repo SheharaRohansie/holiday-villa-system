@@ -1,5 +1,9 @@
 export type UserRole = 'ADMIN' | 'STAFF' | 'GUEST';
 
+export type VillaType = 'DELUXE' | 'SUPERIOR';
+
+export type MealPlan = 'ROOM_ONLY' | 'BED_AND_BREAKFAST' | 'HALF_BOARD' | 'FULL_BOARD';
+
 export interface AuthResponse {
   token: string;
   role: UserRole;
@@ -57,19 +61,33 @@ export interface UserResponse {
 }
 
 // ---- Villa Types ----
+export interface VillaPricingInput {
+  guestCount: number;
+  mealPlan: MealPlan;
+  price: number | string;
+}
+
+export interface VillaPricingRow {
+  id: number;
+  guestCount: number;
+  mealPlan: MealPlan;
+  price: number;
+}
+
 export interface VillaRequest {
   name: string;
   description: string;
-  pricePerNight: number | string;
-  maxGuests: number | string;
+  type: VillaType;
   amenities: string[];
   imageUrls: string[];
+  pricing: VillaPricingInput[];
 }
 
 export interface Villa {
   id: number;
   name: string;
   description: string;
+  type?: VillaType | null;
   pricePerNight: number;
   maxGuests: number;
   amenities: string[];
@@ -78,6 +96,26 @@ export interface Villa {
   updatedAt: string;
   averageRating: number;
   reviewCount: number;
+
+  // Min-price label data for cards
+  minPrice?: number | null;
+  minPriceGuestCount?: number | null;
+  minPriceMealPlan?: MealPlan | null;
+
+  // Helps build the guest selector without rendering a pricing table
+  allowedGuestCounts?: number[];
+}
+
+export interface AdminVillaResponse {
+  villa: Villa;
+  pricing: VillaPricingRow[];
+}
+
+export interface VillaPriceResponse {
+  villaId: number;
+  guestCount: number;
+  mealPlan: MealPlan;
+  pricePerNight: number;
 }
 
 export interface AuthContextType {
@@ -93,6 +131,8 @@ export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'FULLY_PAID';
 
 export interface BookingRequest {
   villaId: number;
+  guestCount: number;
+  mealPlan: MealPlan;
   checkInDate: string;   // ISO date "YYYY-MM-DD"
   checkOutDate: string;
   // Promotion
@@ -111,6 +151,8 @@ export interface Booking {
   guestEmail: string;
   villaId: number;
   villaName: string;
+  guestCount: number;
+  mealPlan: MealPlan;
   checkInDate: string;
   checkOutDate: string;
   nights: number;

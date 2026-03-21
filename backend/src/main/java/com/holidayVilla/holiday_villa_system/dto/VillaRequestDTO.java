@@ -1,6 +1,8 @@
 package com.holidayVilla.holiday_villa_system.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 import lombok.*;
 
 import java.util.List;
@@ -17,16 +19,18 @@ public class VillaRequestDTO {
     @NotBlank(message = "Description is required")
     private String description;
 
-    @NotNull(message = "Price per night is required")
-    @Positive(message = "Price must be positive")
-    private Double pricePerNight;
-
-    private Integer maxGuests;
+    @NotBlank(message = "Villa type is required")
+    private String type;
 
     // Passed as a list; stored joined by commas
     private List<String> amenities;
 
     @NotNull(message = "At least one image URL is required")
-    @Size(min = 1, message = "At least one image URL is required")
+    @Size(min = 1, max = 3, message = "Images must be between 1 and 3")
+    @JsonAlias("images")
     private List<@NotBlank(message = "Image URL must not be blank") String> imageUrls;
+
+    @NotNull(message = "Pricing is required")
+    @Size(min = 1, message = "Pricing is required")
+    private List<@Valid VillaPricingRequestDTO> pricing;
 }

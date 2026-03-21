@@ -37,4 +37,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByStatus(BookingStatus status);
 
     long countByPaymentStatus(PaymentStatus paymentStatus);
+
+    boolean existsByVilla_Id(Long villaId);
 }

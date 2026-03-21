@@ -4,11 +4,14 @@ import com.holidayVilla.holiday_villa_system.dto.ApplicablePromotionResponse;
 import com.holidayVilla.holiday_villa_system.dto.PromotionRequestDTO;
 import com.holidayVilla.holiday_villa_system.dto.PromotionResponse;
 import com.holidayVilla.holiday_villa_system.entity.DiscountType;
+import com.holidayVilla.holiday_villa_system.entity.MealPlan;
 import com.holidayVilla.holiday_villa_system.entity.Promotion;
 import com.holidayVilla.holiday_villa_system.entity.Villa;
+import com.holidayVilla.holiday_villa_system.entity.VillaPricing;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
 import com.holidayVilla.holiday_villa_system.repository.VillaRepository;
+import com.holidayVilla.holiday_villa_system.repository.VillaPricingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ public class PromotionService {
 
     private final PromotionRepository promotionRepository;
     private final VillaRepository villaRepository;
+    private final VillaPricingRepository villaPricingRepository;
 
     // ── ADMIN: Create promotion ────────────────────────────────────────────────
 
@@ -86,10 +90,22 @@ public class PromotionService {
 
     // ── PUBLIC: Check applicable promotion ────────────────────────────────────
 
-    public ApplicablePromotionResponse getApplicablePromotion(Long villaId, LocalDate checkIn, LocalDate checkOut) {
+    public ApplicablePromotionResponse getApplicablePromotion(Long villaId, LocalDate checkIn, LocalDate checkOut,
+                                                             Integer guests, String mealPlanRaw) {
         Villa villa = getVilla(villaId);
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
-        double originalPrice = nights * villa.getPricePerNight();
+
+        double pricePerNight = villa.getPricePerNight();
+        if (guests != null && mealPlanRaw != null && !mealPlanRaw.isBlank()) {
+            MealPlan mealPlan = parseMealPlan(mealPlanRaw);
+            VillaPricing pricing = villaPricingRepository
+                    .findByVillaIdAndGuestCountAndMealPlan(villaId, guests, mealPlan)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Pricing not found for selected guests/meal plan."));
+            pricePerNight = pricing.getPrice();
+        }
+
+        double originalPrice = nights * pricePerNight;
 
         List<Promotion> applicable = promotionRepository.findApplicablePromotions(villaId, checkIn);
         if (applicable.isEmpty()) return null;
@@ -109,6 +125,14 @@ public class PromotionService {
                 .discountAmount(round(discount))
                 .finalPrice(round(finalPrice))
                 .build();
+    }
+
+    private MealPlan parseMealPlan(String raw) {
+        try {
+            return MealPlan.valueOf(raw.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid meal plan.");
+        }
     }
 
     // ── Helper: compute discount amount ───────────────────────────────────────

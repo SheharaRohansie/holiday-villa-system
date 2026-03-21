@@ -28,6 +28,16 @@ public class Booking {
     private Villa villa;
 
     @Column(nullable = false)
+    private Integer guestCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MealPlan mealPlan;
+
+    @Column(nullable = false)
+    private Double pricePerNight;
+
+    @Column(nullable = false)
     private LocalDate checkInDate;
 
     @Column(nullable = false)
