@@ -1,0 +1,28 @@
+/* Minimal success toast */
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #e8f8f0;
+  color: #065f46;
+  border: 1px solid #c3e6cb;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  font-weight: 700;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: inherit;
+  line-height: 1;
+}

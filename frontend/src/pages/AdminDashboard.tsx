@@ -8,6 +8,8 @@ import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deleteProm
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest, MealPlan } from '../types';
 import { COUNTRIES } from '../data/countries';
 import VillaTable from '../components/VillaTable';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
+import Toast from '../components/Toast';
 import AdminReviews from './AdminReviews';
 import RevenueDashboard from './RevenueDashboard';
 import '../styles/Dashboard.css';
@@ -61,6 +63,13 @@ const AdminDashboard: React.FC = () => {
   const [editingPromoId, setEditingPromoId] = useState<number | null>(null);
   const [promoErrors, setPromoErrors] = useState<Partial<Record<keyof PromotionRequest, string>>>({});
 
+  // Global delete confirmation modal state
+  const [showModal, setShowModal] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [deleteType, setDeleteType] = useState('');
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [toast, setToast] = useState('');
+
   // Create Staff Form
   const [staffForm, setStaffForm] = useState<CreateStaffRequest>({
     firstName: '', lastName: '', email: '', phoneNumber: '',
@@ -89,7 +98,6 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleCompletePayment = async (bookingId: number) => {
-    if (!window.confirm('Mark remaining payment as received and complete this booking?')) return;
     try {
       await completePaymentApi(bookingId);
       setMessage('Payment completed. Booking marked as COMPLETED.');
@@ -154,12 +162,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeletePromotion = async (id: number) => {
-    if (!window.confirm('Delete this promotion?')) return;
-    try {
-      await deletePromotionApi(id);
-      setMessage('Promotion deleted.');
-      await loadPromotions();
-    } catch { setMessage('Failed to delete promotion.'); }
+    setSelectedId(id);
+    setDeleteType('promotion');
+    setShowModal(true);
   };
 
   const handleTogglePromotion = async (promo: Promotion) => {
@@ -289,12 +294,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteVilla = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this villa?')) return;
-    try {
-      await deleteVillaApi(id);
-      setMessage('Villa deleted successfully.');
-      await loadVillas();
-    } catch { setMessage('Failed to delete villa.'); }
+    setSelectedId(id);
+    setDeleteType('villa');
+    setShowModal(true);
   };
 
   const startEditVilla = async (villa: Villa) => {
@@ -323,12 +325,36 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    setSelectedId(id);
+    setDeleteType('user');
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId || !deleteType) return;
+    setDeleteProcessing(true);
     try {
-      await deleteUserApi(id);
-      setMessage('User deleted successfully.');
-      loadAllUsers();
-    } catch { setMessage('Failed to delete user.'); }
+      if (deleteType === 'villa') {
+        await deleteVillaApi(selectedId);
+        await loadVillas();
+      } else if (deleteType === 'promotion') {
+        await deletePromotionApi(selectedId);
+        await loadPromotions();
+      } else if (deleteType === 'user') {
+        await deleteUserApi(selectedId);
+        await loadAllUsers();
+      }
+
+      setShowModal(false);
+      setSelectedId(null);
+      setDeleteType('');
+      setToast('Deleted successfully');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to delete item.');
+    } finally {
+      setDeleteProcessing(false);
+    }
   };
 
   const handleCreateStaff = async (e: React.FormEvent) => {
@@ -425,6 +451,14 @@ const AdminDashboard: React.FC = () => {
       </aside>
 
       <main className="dashboard-main">
+        <Toast message={toast} onClose={() => setToast('')} />
+        <ConfirmDeleteModal
+          isOpen={showModal}
+          onClose={() => { if (!deleteProcessing) setShowModal(false); }}
+          onConfirm={handleConfirmDelete}
+          isProcessing={deleteProcessing}
+        />
+
         {message && (
           <div className={`alert ${message.includes('success') || message.includes('created') || message.includes('updated') || message.includes('deleted') ? 'alert-success' : 'alert-error'}`}>
             {message}

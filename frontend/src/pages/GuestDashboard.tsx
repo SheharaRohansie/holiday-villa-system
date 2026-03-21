@@ -6,6 +6,8 @@ import { getAllVillasApi } from '../api/villaApi';
 import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
 import type { UpdateProfileRequest, Villa, Booking } from '../types';
 import VillaCard from '../components/VillaCard';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
+import Toast from '../components/Toast';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
 import '../styles/Booking.css';
@@ -18,6 +20,12 @@ const GuestDashboard: React.FC = () => {
   const [villas, setVillas] = useState<Villa[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [deleteType, setDeleteType] = useState('');
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [toast, setToast] = useState('');
 
   const [profileForm, setProfileForm] = useState<UpdateProfileRequest>({
     email: user?.email || '', currentPassword: '', newPassword: '',
@@ -41,14 +49,27 @@ const GuestDashboard: React.FC = () => {
   };
 
   const handleCancelBooking = async (bookingId: number) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    setSelectedId(bookingId);
+    setDeleteType('booking');
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId || deleteType !== 'booking') return;
+    setDeleteProcessing(true);
     try {
-      await cancelBookingApi(bookingId);
+      await cancelBookingApi(selectedId);
       setMessage('Booking cancelled successfully.');
-      loadMyBookings();
+      await loadMyBookings();
+      setShowModal(false);
+      setSelectedId(null);
+      setDeleteType('');
+      setToast('Deleted successfully');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setMessage(e.response?.data?.message || 'Failed to cancel booking.');
+    } finally {
+      setDeleteProcessing(false);
     }
   };
 
@@ -117,6 +138,14 @@ const GuestDashboard: React.FC = () => {
       </aside>
 
       <main className="dashboard-main">
+        <Toast message={toast} onClose={() => setToast('')} />
+        <ConfirmDeleteModal
+          isOpen={showModal}
+          onClose={() => { if (!deleteProcessing) setShowModal(false); }}
+          onConfirm={handleConfirmDelete}
+          isProcessing={deleteProcessing}
+        />
+
         {message && (
           <div className={`alert ${message.includes('successfully') ? 'alert-success' : 'alert-error'}`}>
             {message} <button onClick={() => setMessage('')} className="alert-close">×</button>

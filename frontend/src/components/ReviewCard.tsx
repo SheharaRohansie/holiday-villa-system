@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import type { Review } from '../types';
 import StarRating from './StarRating';
 import { updateReviewApi, deleteMyReviewApi } from '../api/reviewApi';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
+import Toast from './Toast';
 
 interface ReviewCardProps {
   review: Review;
@@ -23,6 +25,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const [editText, setEditText] = useState(review.reviewText);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [deleteType, setDeleteType] = useState('');
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [toast, setToast] = useState('');
 
   const date = new Date(review.createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -48,18 +55,39 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this review? This cannot be undone.')) return;
+    setSelectedId(review.id);
+    setDeleteType('review');
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId || deleteType !== 'review') return;
+    setDeleteProcessing(true);
     try {
-      await deleteMyReviewApi(review.id);
+      await deleteMyReviewApi(selectedId);
+      setShowModal(false);
+      setSelectedId(null);
+      setDeleteType('');
+      setToast('Deleted successfully');
       onUpdated?.();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      alert(e.response?.data?.message || 'Failed to delete review.');
+      setError(e.response?.data?.message || 'Failed to delete review.');
+    } finally {
+      setDeleteProcessing(false);
     }
   };
 
   return (
     <div className={`review-card ${!review.isVisible ? 'review-card--hidden' : ''}`}>
+      <Toast message={toast} onClose={() => setToast('')} />
+      <ConfirmDeleteModal
+        isOpen={showModal}
+        onClose={() => { if (!deleteProcessing) setShowModal(false); }}
+        onConfirm={handleConfirmDelete}
+        isProcessing={deleteProcessing}
+      />
+
       <div className="review-card-header">
         <div className="review-card-avatar">
           {review.guestName.charAt(0).toUpperCase()}

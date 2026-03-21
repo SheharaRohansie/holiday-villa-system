@@ -1,0 +1,80 @@
+/* Confirm Delete Modal */
+
+.cdm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1100;
+}
+
+.cdm-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem 1.6rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.cdm-modal--in {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cdm-title {
+  margin: 0 0 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #023047;
+}
+
+.cdm-text {
+  margin: 0;
+  color: #444;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.cdm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.cdm-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.cdm-btn:hover {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.cdm-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cdm-btn-secondary {
+  background: #e9eef5;
+  color: #023047;
+}
+
+.cdm-btn-danger {
+  background: #e74c3c;
+  color: #fff;
+}
