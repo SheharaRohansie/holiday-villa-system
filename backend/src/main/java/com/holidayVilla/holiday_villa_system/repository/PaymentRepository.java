@@ -13,6 +13,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByUserIdOrderByPaymentDateDesc(Long userId);
 
+    void deleteByUserId(Long userId);
+
     List<Payment> findAllByOrderByPaymentDateDesc();
 
     boolean existsByBookingIdAndPaymentType(Long bookingId, PaymentType paymentType);

@@ -1,6 +1,7 @@
 package com.holidayVilla.holiday_villa_system.controller;
 
 import com.holidayVilla.holiday_villa_system.dto.CreateStaffRequest;
+import com.holidayVilla.holiday_villa_system.dto.MessageResponse;
 import com.holidayVilla.holiday_villa_system.dto.UpdateProfileRequest;
 import com.holidayVilla.holiday_villa_system.dto.UserResponse;
 import com.holidayVilla.holiday_villa_system.service.UserService;
@@ -8,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -66,5 +69,14 @@ public class UserController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateProfile(id, request));
+    }
+
+    // ---- Guest self-service endpoints ----
+
+    @DeleteMapping("/users/me")
+    @PreAuthorize("hasRole('GUEST')")
+    public ResponseEntity<MessageResponse> deleteMyAccount(@AuthenticationPrincipal UserDetails userDetails) {
+        userService.deleteMyAccount(userDetails.getUsername());
+        return ResponseEntity.ok(new MessageResponse("Account deleted successfully"));
     }
 }

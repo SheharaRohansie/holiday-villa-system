@@ -1,6 +1,8 @@
 import axiosInstance from './axiosInstance';
 import type { CreateStaffRequest, UpdateProfileRequest, UserResponse } from '../types';
 
+type MessageResponse = { message: string };
+
 export const getAllUsersApi = async (): Promise<UserResponse[]> => {
   const response = await axiosInstance.get<UserResponse[]>('/admin/users');
   return response.data;
@@ -32,5 +34,10 @@ export const getUserByIdApi = async (id: number): Promise<UserResponse> => {
 
 export const updateProfileApi = async (id: number, data: UpdateProfileRequest): Promise<UserResponse> => {
   const response = await axiosInstance.put<UserResponse>(`/user/${id}/profile`, data);
+  return response.data;
+};
+
+export const deleteMyAccountApi = async (): Promise<MessageResponse> => {
+  const response = await axiosInstance.delete<MessageResponse>('/users/me');
   return response.data;
 };

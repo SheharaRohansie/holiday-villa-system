@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { updateProfileApi } from '../api/userApi';
+import { deleteMyAccountApi, getUserByIdApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi } from '../api/villaApi';
 import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
-import type { UpdateProfileRequest, Villa, Booking } from '../types';
+import type { UpdateProfileRequest, Villa, Booking, UserResponse } from '../types';
 import VillaCard from '../components/VillaCard';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import Toast from '../components/Toast';
@@ -27,6 +27,10 @@ const GuestDashboard: React.FC = () => {
   const [deleteProcessing, setDeleteProcessing] = useState(false);
   const [toast, setToast] = useState('');
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteAccountProcessing, setDeleteAccountProcessing] = useState(false);
+  const [profileUser, setProfileUser] = useState<UserResponse | null>(null);
+
   const [profileForm, setProfileForm] = useState<UpdateProfileRequest>({
     email: user?.email || '', currentPassword: '', newPassword: '',
   });
@@ -38,6 +42,11 @@ const GuestDashboard: React.FC = () => {
     getAllVillasApi().then(setVillas).catch(() => {});
     loadMyBookings();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    getUserByIdApi(user.userId).then(setProfileUser).catch(() => {});
+  }, [user]);
 
   const loadMyBookings = async () => {
     setBookingsLoading(true);
@@ -96,6 +105,25 @@ const GuestDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeleteAccountProcessing(true);
+    let didRedirect = false;
+    try {
+      await deleteMyAccountApi();
+      sessionStorage.setItem('flashMessage', 'Your account has been deleted successfully');
+      logout();
+      didRedirect = true;
+      navigate('/login', { replace: true });
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setMessage(e.response?.data?.message || 'Failed to delete account. Please try again.');
+      setShowDeleteModal(false);
+    } finally {
+      if (!didRedirect) setDeleteAccountProcessing(false);
+    }
+  };
+
   return (
     <div className="dashboard">
       <aside className="sidebar">
@@ -144,6 +172,18 @@ const GuestDashboard: React.FC = () => {
           onClose={() => { if (!deleteProcessing) setShowModal(false); }}
           onConfirm={handleConfirmDelete}
           isProcessing={deleteProcessing}
+        />
+
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => { if (!deleteAccountProcessing) setShowDeleteModal(false); }}
+          onConfirm={handleDeleteAccount}
+          isProcessing={deleteAccountProcessing}
+          title="Delete Account"
+          message="Are you sure you want to delete your account? This action cannot be undone. All your data, including bookings and reviews, will be permanently removed."
+          cancelText="Cancel"
+          confirmText="Yes, Delete My Account"
+          ariaLabel="Delete account confirmation"
         />
 
         {message && (
@@ -275,6 +315,18 @@ const GuestDashboard: React.FC = () => {
               <div className="profile-info">
                 <p><strong>Name:</strong> {user?.firstName} {user?.lastName}</p>
                 <p><strong>Email:</strong> {user?.email}</p>
+                {profileUser?.phoneNumber && (
+                  <p><strong>Phone:</strong> {profileUser.phoneNumber}</p>
+                )}
+                {profileUser?.nationality && (
+                  <p><strong>Nationality:</strong> {profileUser.nationality}</p>
+                )}
+                {profileUser?.nic && (
+                  <p><strong>NIC:</strong> {profileUser.nic}</p>
+                )}
+                {profileUser?.passportNumber && (
+                  <p><strong>Passport:</strong> {profileUser.passportNumber}</p>
+                )}
                 <p><strong>Role:</strong> <span className="role-badge badge-guest">GUEST</span></p>
               </div>
               <hr />
@@ -296,6 +348,21 @@ const GuestDashboard: React.FC = () => {
                 </div>
                 <button type="submit" className="btn-primary-action">Save Changes</button>
               </form>
+
+              <hr />
+              <h3>Delete My Account</h3>
+              <p className="cdm-text" style={{ marginTop: '0.25rem' }}>
+                This action is permanent and cannot be undone.
+              </p>
+              <button
+                type="button"
+                className="cdm-btn cdm-btn-danger"
+                onClick={() => setShowDeleteModal(true)}
+                disabled={deleteAccountProcessing}
+                style={{ marginTop: '0.75rem' }}
+              >
+                {deleteAccountProcessing ? 'Deleting…' : 'Delete My Account'}
+              </button>
             </div>
           </div>
         )}

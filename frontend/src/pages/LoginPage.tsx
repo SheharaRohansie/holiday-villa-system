@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginApi } from '../api/authApi';
@@ -11,7 +11,16 @@ const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
+  const [flashMessage, setFlashMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const msg = sessionStorage.getItem('flashMessage');
+    if (msg) {
+      setFlashMessage(msg);
+      sessionStorage.removeItem('flashMessage');
+    }
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -56,6 +65,7 @@ const LoginPage: React.FC = () => {
           <h2 className="auth-title">Welcome Back</h2>
           <p className="auth-subtitle">Sign in to your account</p>
 
+          {flashMessage && <div className="alert alert-success">{flashMessage}</div>}
           {serverError && <div className="alert alert-error">{serverError}</div>}
 
           <form onSubmit={handleSubmit} noValidate>

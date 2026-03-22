@@ -7,10 +7,14 @@ import com.holidayVilla.holiday_villa_system.entity.Role;
 import com.holidayVilla.holiday_villa_system.entity.User;
 import com.holidayVilla.holiday_villa_system.exception.EmailAlreadyExistsException;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
+import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
+import com.holidayVilla.holiday_villa_system.repository.PaymentRepository;
+import com.holidayVilla.holiday_villa_system.repository.ReviewRepository;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,6 +25,9 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BookingRepository bookingRepository;
+    private final ReviewRepository reviewRepository;
+    private final PaymentRepository paymentRepository;
 
     // Admin: create staff account
     public UserResponse createStaff(CreateStaffRequest request) {
@@ -72,6 +79,24 @@ public class UserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        userRepository.delete(user);
+    }
+
+    /**
+     * Guest: delete own account.
+     *
+     * Deletion order matters due to foreign keys:
+     * payments -> reviews -> bookings -> user
+     */
+    @Transactional
+    public void deleteMyAccount(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        Long userId = user.getId();
+        paymentRepository.deleteByUserId(userId);
+        reviewRepository.deleteByUserId(userId);
+        bookingRepository.deleteByUserId(userId);
         userRepository.delete(user);
     }
 
