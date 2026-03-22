@@ -1,0 +1,42 @@
+/* Booking Availability Calendar */
+
+.booking-calendar {
+  margin-top: 0.75rem;
+}
+
+.booking-calendar-help {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.booking-calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bc-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: #e74c3c;
+}
+
+.booking-calendar-error {
+  margin-top: 0.4rem;
+  color: #b42318;
+  font-weight: 700;
+}
+
+/* react-datepicker day styling */
+.bc-day-booked {
+  background: #e74c3c !important;
+  color: #fff !important;
+  border-radius: 0.3rem;
+}
+
+/* Ensure disabled days look disabled even if class applied */
+.react-datepicker__day--disabled.bc-day-booked {
+  opacity: 0.75;
+}

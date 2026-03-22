@@ -19,7 +19,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     /** All reviews by a user */
     List<Review> findByUser_Id(Long userId);
 
-    void deleteByUserId(Long userId);
+    void deleteByUser_Id(Long userId);
 
     void deleteByVilla_Id(Long villaId);
 

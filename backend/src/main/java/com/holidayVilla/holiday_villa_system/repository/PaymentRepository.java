@@ -11,9 +11,9 @@ import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-    List<Payment> findByUserIdOrderByPaymentDateDesc(Long userId);
+    List<Payment> findByUser_IdOrderByPaymentDateDesc(Long userId);
 
-    void deleteByUserId(Long userId);
+    void deleteByUser_Id(Long userId);
 
     List<Payment> findAllByOrderByPaymentDateDesc();
 

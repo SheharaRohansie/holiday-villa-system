@@ -135,7 +135,7 @@ public class PaymentService {
 
     public List<PaymentResponse> getMyPayments(String email) {
         User user = getUserByEmail(email);
-        return paymentRepository.findByUserIdOrderByPaymentDateDesc(user.getId())
+        return paymentRepository.findByUser_IdOrderByPaymentDateDesc(user.getId())
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());

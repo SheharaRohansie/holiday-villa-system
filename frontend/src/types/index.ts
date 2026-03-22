@@ -125,6 +125,12 @@ export interface AuthContextType {
   isAuthenticated: boolean;
 }
 
+// ---- Villa Availability ----
+export interface BookedDateRange {
+  checkInDate: string;  // ISO date "YYYY-MM-DD"
+  checkOutDate: string; // ISO date "YYYY-MM-DD"
+}
+
 // ---- Booking Types ----
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'FULLY_PAID';

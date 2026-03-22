@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
+import { getVillaBookedDatesApi, getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
 import { createBookingApi, processPaymentApi } from '../api/bookingApi';
 import { getApplicablePromotionApi } from '../api/promotionApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa, ApplicablePromotion, MealPlan } from '../types';
+import type { Villa, ApplicablePromotion, MealPlan, BookedDateRange } from '../types';
+import BookingCalendar from '../components/BookingCalendar';
 import '../styles/Booking.css';
 
 const formatLKR = (amount: number) =>
@@ -15,6 +16,12 @@ const tomorrow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().split('T')[0];
+};
+
+const parseIsoDateLocal = (iso: string): Date => new Date(`${iso}T00:00:00`);
+const toIsoLocal = (d: Date) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
 };
 
 const BookingPage: React.FC = () => {
@@ -34,7 +41,12 @@ const BookingPage: React.FC = () => {
 
   const [checkIn, setCheckIn] = useState(today());
   const [checkOut, setCheckOut] = useState(tomorrow());
+  const [checkInDate, setCheckInDate] = useState<Date | null>(parseIsoDateLocal(today()));
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(parseIsoDateLocal(tomorrow()));
   const [paymentType, setPaymentType] = useState<'ADVANCE' | 'FULL'>('ADVANCE');
+
+  const [bookedRanges, setBookedRanges] = useState<BookedDateRange[]>([]);
+  const [bookedLoading, setBookedLoading] = useState(false);
 
   // ── Promotion state ─────────────────────────────────────────────────────
   const [promotion, setPromotion] = useState<ApplicablePromotion | null>(null);
@@ -52,13 +64,31 @@ const BookingPage: React.FC = () => {
     const qs = new URLSearchParams(location.search);
     const qsGuests = Number(qs.get('guests') || 2);
     const qsMeal = (qs.get('mealPlan') || 'ROOM_ONLY') as MealPlan;
+    const qsCheckIn = qs.get('checkIn');
+    const qsCheckOut = qs.get('checkOut');
     setGuestCount(Number.isFinite(qsGuests) && qsGuests > 0 ? qsGuests : 2);
     setMealPlan(qsMeal);
+
+    if (qsCheckIn && qsCheckOut) {
+      setCheckIn(qsCheckIn);
+      setCheckOut(qsCheckOut);
+      setCheckInDate(parseIsoDateLocal(qsCheckIn));
+      setCheckOutDate(parseIsoDateLocal(qsCheckOut));
+    }
 
     getVillaByIdApi(Number(villaId))
       .then(v => { setVilla(v); setLoading(false); })
       .catch(() => { setError('Villa not found.'); setLoading(false); });
   }, [villaId, location.search]);
+
+  useEffect(() => {
+    if (!villaId) return;
+    setBookedLoading(true);
+    getVillaBookedDatesApi(Number(villaId))
+      .then(setBookedRanges)
+      .catch(() => setBookedRanges([]))
+      .finally(() => setBookedLoading(false));
+  }, [villaId]);
 
   // Fetch dynamic price
   useEffect(() => {
@@ -117,6 +147,11 @@ const BookingPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
+
+    if (!checkInDate || !checkOutDate) {
+      setSubmitError('Please select both check-in and check-out dates.');
+      return;
+    }
 
     if (nights <= 0) { setSubmitError('Check-out must be after check-in.'); return; }
     if (!villa) return;
@@ -242,27 +277,26 @@ const BookingPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} noValidate>
             {/* Dates */}
-            <div className="booking-dates-row">
-              <div className="booking-field">
-                <label>Check-in Date</label>
-                <input
-                  type="date"
-                  value={checkIn}
-                  min={today()}
-                  onChange={e => { setCheckIn(e.target.value); setSubmitError(''); }}
-                  required
+            <div className="booking-field">
+              <label>Select Dates</label>
+              {bookedLoading ? (
+                <div className="booking-price-placeholder">Loading availability…</div>
+              ) : (
+                <BookingCalendar
+                  bookedRanges={bookedRanges}
+                  startDate={checkInDate}
+                  endDate={checkOutDate}
+                  onChange={(start, end) => {
+                    setCheckInDate(start);
+                    setCheckOutDate(end);
+                    if (start) setCheckIn(toIsoLocal(start));
+                    else setCheckIn('');
+                    if (end) setCheckOut(toIsoLocal(end));
+                    else setCheckOut('');
+                    setSubmitError('');
+                  }}
                 />
-              </div>
-              <div className="booking-field">
-                <label>Check-out Date</label>
-                <input
-                  type="date"
-                  value={checkOut}
-                  min={checkIn || today()}
-                  onChange={e => { setCheckOut(e.target.value); setSubmitError(''); }}
-                  required
-                />
-              </div>
+              )}
             </div>
 
             {/* Price Summary */}

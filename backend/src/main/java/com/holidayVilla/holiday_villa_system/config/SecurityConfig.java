@@ -65,6 +65,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
                 // Guest booking endpoints
                 .requestMatchers("/api/bookings/**").hasRole("GUEST")
+                // Guest self-service
+                .requestMatchers(HttpMethod.DELETE, "/api/users/me").hasRole("GUEST")
                 // Guest payment endpoints
                 .requestMatchers(HttpMethod.POST, "/api/payments/pay").hasRole("GUEST")
                 .requestMatchers(HttpMethod.GET, "/api/payments/my").hasRole("GUEST")

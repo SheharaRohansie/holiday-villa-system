@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-brand">
-          <Link to="/" className="auth-logo">🌊 Holiday Villa Resort</Link>
+          <Link to="/" className="auth-logo">💒 Holiday Villa Resort</Link>
         </div>
         <div className="auth-card">
           <h2 className="auth-title">Welcome Back</h2>

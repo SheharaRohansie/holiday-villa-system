@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
+import { getVillaBookedDatesApi, getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
 import { getActivePromotionsApi } from '../api/promotionApi';
 import { getVillaReviewsApi } from '../api/reviewApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa, Promotion, Review, MealPlan } from '../types';
+import type { Villa, Promotion, Review, MealPlan, BookedDateRange } from '../types';
 import ReviewCard from '../components/ReviewCard';
 import StarRating from '../components/StarRating';
+import BookingCalendar from '../components/BookingCalendar';
 import '../styles/Villa.css';
 import '../styles/Review.css';
 
@@ -29,6 +30,16 @@ const VillaDetails: React.FC = () => {
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState<string>('');
 
+  const [bookedRanges, setBookedRanges] = useState<BookedDateRange[]>([]);
+  const [bookedLoading, setBookedLoading] = useState(false);
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+
+  const toIsoLocal = (d: Date) => {
+    const x = new Date(d);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  };
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -44,6 +55,12 @@ const VillaDetails: React.FC = () => {
         setLoading(false);
       })
       .catch(() => { setError('Villa not found.'); setLoading(false); });
+
+    setBookedLoading(true);
+    getVillaBookedDatesApi(Number(id))
+      .then(setBookedRanges)
+      .catch(() => setBookedRanges([]))
+      .finally(() => setBookedLoading(false));
     // Fetch active promotions for this villa
     getActivePromotionsApi()
       .then(promos => {
@@ -193,6 +210,23 @@ const VillaDetails: React.FC = () => {
           </div>
 
           <div className="villa-details-section">
+            <h3>Availability Calendar</h3>
+            {bookedLoading ? (
+              <div className="villa-details-loading">Loading availability…</div>
+            ) : (
+              <BookingCalendar
+                bookedRanges={bookedRanges}
+                startDate={checkInDate}
+                endDate={checkOutDate}
+                onChange={(start, end) => {
+                  setCheckInDate(start);
+                  setCheckOutDate(end);
+                }}
+              />
+            )}
+          </div>
+
+          <div className="villa-details-section">
             <h3>Description</h3>
             <p>{villa.description}</p>
           </div>
@@ -215,7 +249,15 @@ const VillaDetails: React.FC = () => {
               if (!user || user.role !== 'GUEST') {
                 navigate('/login');
               } else {
-                navigate(`/book/${villa.id}?guests=${guestCount}&mealPlan=${mealPlan}`);
+                const qs = new URLSearchParams({
+                  guests: String(guestCount),
+                  mealPlan,
+                });
+                if (checkInDate && checkOutDate) {
+                  qs.set('checkIn', toIsoLocal(checkInDate));
+                  qs.set('checkOut', toIsoLocal(checkOutDate));
+                }
+                navigate(`/book/${villa.id}?${qs.toString()}`);
               }
             }}
           >

@@ -94,9 +94,9 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
         Long userId = user.getId();
-        paymentRepository.deleteByUserId(userId);
-        reviewRepository.deleteByUserId(userId);
-        bookingRepository.deleteByUserId(userId);
+        paymentRepository.deleteByUser_Id(userId);
+        reviewRepository.deleteByUser_Id(userId);
+        bookingRepository.deleteByUser_Id(userId);
         userRepository.delete(user);
     }
 

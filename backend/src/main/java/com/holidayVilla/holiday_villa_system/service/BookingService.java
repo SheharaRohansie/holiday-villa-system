@@ -2,6 +2,7 @@ package com.holidayVilla.holiday_villa_system.service;
 
 import com.holidayVilla.holiday_villa_system.dto.BookingRequestDTO;
 import com.holidayVilla.holiday_villa_system.dto.BookingResponse;
+import com.holidayVilla.holiday_villa_system.dto.BookedDateRangeResponse;
 import com.holidayVilla.holiday_villa_system.dto.PaymentRequestDTO;
 import com.holidayVilla.holiday_villa_system.entity.*;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -136,7 +138,7 @@ public class BookingService {
 
     public List<BookingResponse> getMyBookings(String email) {
         User user = getUserByEmail(email);
-        return bookingRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
+        return bookingRepository.findByUser_IdOrderByCreatedAtDesc(user.getId())
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -177,6 +179,19 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    // ── PUBLIC: Villa booked dates ───────────────────────────────────────────
+
+    public List<BookedDateRangeResponse> getBookedDateRanges(Long villaId) {
+        // Ensure villa exists (helps return 404 vs empty list on invalid id)
+        getVillaById(villaId);
+
+        List<BookingStatus> statuses = Arrays.asList(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+        return bookingRepository.findByVilla_IdAndStatusInOrderByCheckInDateAsc(villaId, statuses)
+                .stream()
+                .map(b -> new BookedDateRangeResponse(b.getCheckInDate(), b.getCheckOutDate()))
+                .collect(Collectors.toList());
+    }
+
     // ── ADMIN: Complete remaining payment at checkout ─────────────────────────
 
     @Transactional
@@ -212,8 +227,7 @@ public class BookingService {
         boolean overlaps = bookingRepository.existsOverlappingBooking(
                 villaId, checkIn, checkOut, BookingStatus.CANCELLED);
         if (overlaps) {
-            throw new IllegalStateException(
-                    "Villa is not available for the selected dates. Please choose different dates.");
+            throw new IllegalStateException("Selected dates are not available");
         }
     }
 

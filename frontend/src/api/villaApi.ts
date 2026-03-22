@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { Villa, VillaRequest, AdminVillaResponse, VillaPriceResponse, MealPlan } from '../types';
+import type { Villa, VillaRequest, AdminVillaResponse, VillaPriceResponse, MealPlan, BookedDateRange } from '../types';
 
 // Public
 export const getAllVillasApi = (): Promise<Villa[]> =>
@@ -10,6 +10,9 @@ export const getVillaByIdApi = (id: number): Promise<Villa> =>
 
 export const getVillaPriceApi = (id: number, guests: number, mealPlan: MealPlan): Promise<VillaPriceResponse> =>
   axiosInstance.get(`/villas/${id}/price`, { params: { guests, mealPlan } }).then(r => r.data);
+
+export const getVillaBookedDatesApi = (id: number): Promise<BookedDateRange[]> =>
+  axiosInstance.get(`/villas/${id}/booked-dates`).then(r => r.data);
 
 // Admin
 export const addVillaApi = (data: VillaRequest): Promise<{ message: string }> =>

@@ -3,8 +3,10 @@ package com.holidayVilla.holiday_villa_system.controller;
 import com.holidayVilla.holiday_villa_system.dto.VillaRequestDTO;
 import com.holidayVilla.holiday_villa_system.dto.VillaResponse;
 import com.holidayVilla.holiday_villa_system.dto.AdminVillaResponse;
+import com.holidayVilla.holiday_villa_system.dto.BookedDateRangeResponse;
 import com.holidayVilla.holiday_villa_system.dto.MessageResponse;
 import com.holidayVilla.holiday_villa_system.dto.VillaPriceResponse;
+import com.holidayVilla.holiday_villa_system.service.BookingService;
 import com.holidayVilla.holiday_villa_system.service.VillaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.List;
 public class VillaController {
 
     private final VillaService villaService;
+    private final BookingService bookingService;
 
     // ---- PUBLIC endpoints ----
 
@@ -39,6 +42,11 @@ public class VillaController {
             @RequestParam int guests,
             @RequestParam String mealPlan) {
         return ResponseEntity.ok(villaService.getDynamicPrice(id, guests, mealPlan));
+    }
+
+    @GetMapping("/api/villas/{id}/booked-dates")
+    public ResponseEntity<List<BookedDateRangeResponse>> getBookedDates(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.getBookedDateRanges(id));
     }
 
     // ---- ADMIN endpoints ----
