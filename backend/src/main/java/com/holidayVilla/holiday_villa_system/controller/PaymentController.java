@@ -14,8 +14,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,13 +32,54 @@ public class PaymentController {
 
     // ── GUEST: Make a payment ─────────────────────────────────────────────────
 
-    @PostMapping("/api/payments/pay")
+    @PostMapping(value = "/api/payments/pay", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GUEST')")
     public ResponseEntity<PaymentResponse> pay(
             @Valid @RequestBody PaymentProcessRequest req,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(paymentService.processPayment(req, userDetails.getUsername()));
+    }
+
+    @PostMapping(value = "/api/payments/pay", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('GUEST')")
+    public ResponseEntity<PaymentResponse> payWithReceipt(
+            @Valid @ModelAttribute PaymentProcessRequest req,
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) throws IOException {
+
+        if (req.getPaymentMethod() == null || !"BANK_TRANSFER".equalsIgnoreCase(req.getPaymentMethod())) {
+            throw new IllegalArgumentException("Receipt upload is only supported for BANK_TRANSFER payments.");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Receipt file is required for bank transfer payments.");
+        }
+
+        // Validate size (5MB)
+        long maxBytes = 5L * 1024L * 1024L;
+        if (file.getSize() > maxBytes) {
+            throw new IllegalArgumentException("Receipt file must be 5MB or less.");
+        }
+
+        // Validate type
+        String originalName = (file.getOriginalFilename() == null) ? "" : file.getOriginalFilename().toLowerCase();
+        boolean okExt = originalName.endsWith(".jpg") || originalName.endsWith(".jpeg") || originalName.endsWith(".png") || originalName.endsWith(".pdf");
+        if (!okExt) {
+            throw new IllegalArgumentException("Only JPG, PNG, or PDF files are allowed.");
+        }
+
+        Path dir = Paths.get("uploads", "payments");
+        Files.createDirectories(dir);
+
+        String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : "";
+        String filename = "payment-" + req.getBookingId() + "-" + UUID.randomUUID() + ext;
+        Path target = dir.resolve(filename).normalize();
+        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+        String storedPath = Paths.get("uploads", "payments", filename).toString().replace('\\', '/');
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.processPayment(req, userDetails.getUsername(), storedPath));
     }
 
     // ── GUEST: View own payment history ───────────────────────────────────────

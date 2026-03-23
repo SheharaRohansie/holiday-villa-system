@@ -44,6 +44,19 @@ public class Payment {
     @Column(nullable = false, unique = true)
     private String transactionReference;
 
+    // Optional metadata (simulated system)
+    @Column
+    private String cardType;
+
+    @Column
+    private String cardLast4;
+
+    @Column
+    private String cardExpiryDate;
+
+    @Column(length = 1024)
+    private String bankTransferReceiptPath;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime paymentDate;

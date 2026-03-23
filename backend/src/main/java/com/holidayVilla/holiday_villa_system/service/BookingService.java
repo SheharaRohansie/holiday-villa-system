@@ -185,7 +185,13 @@ public class BookingService {
         // Ensure villa exists (helps return 404 vs empty list on invalid id)
         getVillaById(villaId);
 
-        List<BookingStatus> statuses = Arrays.asList(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+        // Keep this aligned with checkAvailability(): any status except CANCELLED should block dates.
+        // Including COMPLETED also avoids a mismatch if a booking is marked COMPLETED early.
+        List<BookingStatus> statuses = Arrays.asList(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.COMPLETED
+        );
         return bookingRepository.findByVilla_IdAndStatusInOrderByCheckInDateAsc(villaId, statuses)
                 .stream()
                 .map(b -> new BookedDateRangeResponse(b.getCheckInDate(), b.getCheckOutDate()))

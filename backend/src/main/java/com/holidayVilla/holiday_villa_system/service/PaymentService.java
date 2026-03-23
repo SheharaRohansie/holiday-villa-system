@@ -37,6 +37,11 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse processPayment(PaymentProcessRequest req, String email) {
+        return processPayment(req, email, null);
+    }
+
+    @Transactional
+    public PaymentResponse processPayment(PaymentProcessRequest req, String email, String bankTransferReceiptPath) {
 
         User user = getUserByEmail(email);
         Booking booking = getBookingById(req.getBookingId());
@@ -85,6 +90,14 @@ public class PaymentService {
         // Simulate payment — always succeeds
         String txRef = "TXN-" + UUID.randomUUID().toString().toUpperCase().replace("-", "").substring(0, 12);
 
+        String cardLast4 = null;
+        if (req.getCardNumber() != null) {
+            String digits = req.getCardNumber().replaceAll("\\D", "");
+            if (digits.length() >= 4) {
+                cardLast4 = digits.substring(digits.length() - 4);
+            }
+        }
+
         Payment payment = Payment.builder()
                 .booking(booking)
                 .user(user)
@@ -93,6 +106,10 @@ public class PaymentService {
                 .paymentMethod(paymentMethod)
                 .paymentStatus(PaymentTransactionStatus.SUCCESS)
                 .transactionReference(txRef)
+                .cardType(req.getCardType())
+                .cardLast4(cardLast4)
+                .cardExpiryDate(req.getExpiryDate())
+                .bankTransferReceiptPath(bankTransferReceiptPath)
                 .build();
 
         payment = paymentRepository.save(payment);

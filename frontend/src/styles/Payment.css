@@ -137,6 +137,54 @@
 .btn-pay:hover { opacity: 0.88; }
 .btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Method-specific fields (CARD / BANK_TRANSFER) ── */
+.payment-method-fields {
+  margin-bottom: 1rem;
+}
+
+.payment-field {
+  margin-bottom: 0.85rem;
+}
+
+.payment-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 0.4rem;
+}
+
+.payment-field input,
+.payment-field select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  outline: none;
+  background: #fafafa;
+  color: #023047;
+}
+
+.payment-field input:focus,
+.payment-field select:focus {
+  border-color: #0077b6;
+  background: #fff;
+}
+
+.payment-field-error {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c62828;
+}
+
+.payment-file-hint {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: #555;
+}
+
 /* ── Success Banner ── */
 .payment-success-banner {
   background: linear-gradient(135deg, #e8f5e9, #c8e6c9);

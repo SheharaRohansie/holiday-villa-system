@@ -11,18 +11,20 @@ import '../styles/Booking.css';
 const formatLKR = (amount: number) =>
   `LKR ${amount.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const today = () => new Date().toISOString().split('T')[0];
-const tomorrow = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
-};
-
-const parseIsoDateLocal = (iso: string): Date => new Date(`${iso}T00:00:00`);
 const toIsoLocal = (d: Date) => {
   const x = new Date(d);
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
 };
+
+// IMPORTANT: Use local calendar dates, not UTC (toISOString), to avoid 1-day drift.
+const todayLocal = () => toIsoLocal(new Date());
+const tomorrowLocal = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toIsoLocal(d);
+};
+
+const parseIsoDateLocal = (iso: string): Date => new Date(`${iso}T00:00:00`);
 
 const BookingPage: React.FC = () => {
   const { villaId } = useParams<{ villaId: string }>();
@@ -39,10 +41,10 @@ const BookingPage: React.FC = () => {
   const [pricePerNight, setPricePerNight] = useState<number>(0);
   const [priceLoading, setPriceLoading] = useState(false);
 
-  const [checkIn, setCheckIn] = useState(today());
-  const [checkOut, setCheckOut] = useState(tomorrow());
-  const [checkInDate, setCheckInDate] = useState<Date | null>(parseIsoDateLocal(today()));
-  const [checkOutDate, setCheckOutDate] = useState<Date | null>(parseIsoDateLocal(tomorrow()));
+  const [checkIn, setCheckIn] = useState(todayLocal());
+  const [checkOut, setCheckOut] = useState(tomorrowLocal());
+  const [checkInDate, setCheckInDate] = useState<Date | null>(parseIsoDateLocal(todayLocal()));
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(parseIsoDateLocal(tomorrowLocal()));
   const [paymentType, setPaymentType] = useState<'ADVANCE' | 'FULL'>('ADVANCE');
 
   const [bookedRanges, setBookedRanges] = useState<BookedDateRange[]>([]);
@@ -110,8 +112,9 @@ const BookingPage: React.FC = () => {
   }, [villa?.id, guestCount, mealPlan]);
 
   const calcNights = (): number => {
-    const ci = new Date(checkIn);
-    const co = new Date(checkOut);
+    if (!checkInDate || !checkOutDate) return 0;
+    const ci = parseIsoDateLocal(toIsoLocal(checkInDate));
+    const co = parseIsoDateLocal(toIsoLocal(checkOutDate));
     const diff = (co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24);
     return diff > 0 ? Math.floor(diff) : 0;
   };
@@ -153,6 +156,13 @@ const BookingPage: React.FC = () => {
       return;
     }
 
+    // Always derive the API payload from the selected Date objects (local),
+    // so querystring/default string state can’t drift and break booking.
+    const checkInIso = toIsoLocal(checkInDate);
+    const checkOutIso = toIsoLocal(checkOutDate);
+    setCheckIn(checkInIso);
+    setCheckOut(checkOutIso);
+
     if (nights <= 0) { setSubmitError('Check-out must be after check-in.'); return; }
     if (!villa) return;
 
@@ -169,8 +179,8 @@ const BookingPage: React.FC = () => {
         villaId: villa.id,
         guestCount,
         mealPlan,
-        checkInDate: checkIn,
-        checkOutDate: checkOut,
+        checkInDate: checkInIso,
+        checkOutDate: checkOutIso,
         appliedPromotionId: (promotion && promoChoice === 'apply') ? promotion.promotionId : null,
         promotionAccepted: promoChoice === 'apply',
       });

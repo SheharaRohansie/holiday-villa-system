@@ -15,4 +15,10 @@ public class PaymentProcessRequest {
 
     @NotBlank(message = "Payment method is required")
     private String paymentMethod; // CARD | CASH | BANK_TRANSFER
+
+    // Optional CARD details (validated on frontend; accepted here for simulation only)
+    private String cardNumber;
+    private String cardType;   // VISA | MASTERCARD
+    private String expiryDate; // MM/YY
+    private String cvv;
 }

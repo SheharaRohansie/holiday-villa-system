@@ -848,6 +848,8 @@ const VillaFormFields: React.FC<{
     });
   };
 
+  const digitsOnly = (v: string) => v.replace(/\D/g, '');
+
   const onTypeChange = (nextType: VillaRequest['type']) => {
     // Reset pricing entries to match the required matrix for selected type
     const nextAllowed = nextType === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6];
@@ -909,10 +911,31 @@ const VillaFormFields: React.FC<{
                   {mealPlans.map(mp => (
                     <td key={mp.value}>
                       <input
-                        type="number"
-                        min={1}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="off"
                         value={getPrice(g, mp.value)}
-                        onChange={e => setPrice(g, mp.value, e.target.value)}
+                        onKeyDown={e => {
+                          // Allow: digits, navigation, delete/backspace, tab, and common shortcuts.
+                          if (e.ctrlKey || e.metaKey) return;
+                          const allowed = [
+                            'Backspace', 'Delete', 'Tab',
+                            'ArrowLeft', 'ArrowRight', 'Home', 'End'
+                          ];
+                          if (allowed.includes(e.key)) return;
+                          if (/^[0-9]$/.test(e.key)) return;
+                          e.preventDefault();
+                        }}
+                        onPaste={e => {
+                          e.preventDefault();
+                          const text = e.clipboardData.getData('text');
+                          setPrice(g, mp.value, digitsOnly(text));
+                        }}
+                        onChange={e => {
+                          const next = digitsOnly(e.target.value);
+                          setPrice(g, mp.value, next);
+                        }}
                         placeholder="LKR"
                         style={{ width: '100%', minWidth: 120 }}
                       />

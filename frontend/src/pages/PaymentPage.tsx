@@ -23,6 +23,17 @@ const PaymentPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // CARD fields
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardType, setCardType] = useState<'VISA' | 'MASTERCARD' | ''>('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+
+  // BANK TRANSFER file
+  const [bankFile, setBankFile] = useState<File | null>(null);
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const [successRecord, setSuccessRecord] = useState<PaymentRecord | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -33,6 +44,21 @@ const PaymentPage: React.FC = () => {
       .then(b => { setBooking(b); setLoading(false); })
       .catch(() => { setError('Booking not found.'); setLoading(false); });
   }, [bookingId]);
+
+  // Reset method-specific fields when payment method changes
+  useEffect(() => {
+    setSubmitError('');
+    setFieldErrors({});
+    if (paymentMethod !== 'CARD') {
+      setCardNumber('');
+      setCardType('');
+      setExpiryDate('');
+      setCvv('');
+    }
+    if (paymentMethod !== 'BANK_TRANSFER') {
+      setBankFile(null);
+    }
+  }, [paymentMethod]);
 
   // Determine which payment options are available
   const availableTypes = (): PaymentType[] => {
@@ -59,6 +85,11 @@ const PaymentPage: React.FC = () => {
         bookingId: booking.id,
         paymentType,
         paymentMethod,
+        cardNumber: paymentMethod === 'CARD' ? cardNumber : undefined,
+        cardType: paymentMethod === 'CARD' ? (cardType || undefined) : undefined,
+        expiryDate: paymentMethod === 'CARD' ? expiryDate : undefined,
+        cvv: paymentMethod === 'CARD' ? cvv : undefined,
+        bankTransferFile: paymentMethod === 'BANK_TRANSFER' ? (bankFile ?? undefined) : undefined,
       });
       setSuccessRecord(result);
       // Refresh booking state
@@ -70,6 +101,95 @@ const PaymentPage: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const validateCard = () => {
+    const errors: Record<string, string> = {};
+
+    const digitsOnly = (s: string) => s.replace(/\D/g, '');
+    const cn = digitsOnly(cardNumber);
+    if (!cn) errors.cardNumber = 'Card number is required.';
+    else if (cn.length !== 16) errors.cardNumber = 'Card number must be exactly 16 digits.';
+
+    if (!cardType) errors.cardType = 'Card type is required.';
+
+    const cv = digitsOnly(cvv);
+    if (!cv) errors.cvv = 'CVV is required.';
+    else if (cv.length !== 3) errors.cvv = 'CVV must be exactly 3 digits.';
+
+    // Expiry MM/YY and must be in the future
+    if (!expiryDate) {
+      errors.expiryDate = 'Expiry date is required.';
+    } else {
+      const m = expiryDate.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+      if (!m) {
+        errors.expiryDate = 'Expiry date must be in MM/YY format.';
+      } else {
+        const mm = Number(m[1]);
+        const yy = Number(m[2]);
+        const fullYear = 2000 + yy;
+        // Consider valid until the end of the expiry month
+        const expiryEnd = new Date(fullYear, mm, 0, 23, 59, 59, 999);
+        if (expiryEnd.getTime() <= Date.now()) {
+          errors.expiryDate = 'Expiry date must be a future date.';
+        }
+      }
+    }
+
+    return errors;
+  };
+
+  const validateBankTransfer = () => {
+    const errors: Record<string, string> = {};
+    if (!bankFile) {
+      errors.bankFile = 'Please upload your bank transfer receipt (JPG, PNG, or PDF).';
+      return errors;
+    }
+
+    const maxBytes = 5 * 1024 * 1024;
+    if (bankFile.size > maxBytes) {
+      errors.bankFile = 'File size must be 5MB or less.';
+      return errors;
+    }
+
+    const name = bankFile.name.toLowerCase();
+    const okExt = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.pdf');
+    if (!okExt) {
+      errors.bankFile = 'Only JPG, PNG, or PDF files are allowed.';
+      return errors;
+    }
+
+    const okType =
+      bankFile.type === 'image/jpeg' ||
+      bankFile.type === 'image/png' ||
+      bankFile.type === 'application/pdf' ||
+      bankFile.type === '';
+    if (!okType) {
+      errors.bankFile = 'Only image or PDF files are allowed.';
+    }
+    return errors;
+  };
+
+  const validateBeforeSubmit = () => {
+    let errors: Record<string, string> = {};
+    if (paymentMethod === 'CARD') errors = validateCard();
+    if (paymentMethod === 'BANK_TRANSFER') errors = validateBankTransfer();
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const canPay = () => {
+    if (submitting) return false;
+    if (!booking) return false;
+    if (paymentMethod === 'CARD') {
+      const errors = validateCard();
+      return Object.keys(errors).length === 0;
+    }
+    if (paymentMethod === 'BANK_TRANSFER') {
+      const errors = validateBankTransfer();
+      return Object.keys(errors).length === 0;
+    }
+    return true; // CASH
   };
 
   const handleDownloadInvoice = async () => {
@@ -188,7 +308,110 @@ const PaymentPage: React.FC = () => {
 
                 {submitError && <p style={{ color: '#c62828', fontSize: '0.88rem', marginBottom: '0.8rem' }}>{submitError}</p>}
 
-                <button className="btn-pay" onClick={handlePay} disabled={submitting}>
+                {/* Method-specific fields */}
+                {paymentMethod === 'CARD' && (
+                  <div className="payment-method-fields">
+                    <div className="payment-field">
+                      <label>Card Number</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="16-digit card number"
+                        value={cardNumber}
+                        onChange={e => {
+                          // Keep digits only, max 16
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
+                          setCardNumber(digits);
+                          setFieldErrors(prev => ({ ...prev, cardNumber: '' }));
+                        }}
+                        onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
+                      />
+                      {fieldErrors.cardNumber && <div className="payment-field-error">{fieldErrors.cardNumber}</div>}
+                    </div>
+
+                    <div className="payment-field">
+                      <label>Card Type</label>
+                      <select
+                        value={cardType}
+                        onChange={e => {
+                          setCardType(e.target.value as any);
+                          setFieldErrors(prev => ({ ...prev, cardType: '' }));
+                        }}
+                        onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
+                      >
+                        <option value="">Select card type</option>
+                        <option value="VISA">VISA</option>
+                        <option value="MASTERCARD">MASTERCARD</option>
+                      </select>
+                      {fieldErrors.cardType && <div className="payment-field-error">{fieldErrors.cardType}</div>}
+                    </div>
+
+                    <div className="payment-field">
+                      <label>Expiry Date (MM/YY)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="MM/YY"
+                        value={expiryDate}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9/]/g, '').slice(0, 5);
+                          setExpiryDate(v);
+                          setFieldErrors(prev => ({ ...prev, expiryDate: '' }));
+                        }}
+                        onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
+                      />
+                      {fieldErrors.expiryDate && <div className="payment-field-error">{fieldErrors.expiryDate}</div>}
+                    </div>
+
+                    <div className="payment-field">
+                      <label>CVV</label>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="3 digits"
+                        value={cvv}
+                        onChange={e => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          setCvv(digits);
+                          setFieldErrors(prev => ({ ...prev, cvv: '' }));
+                        }}
+                        onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
+                      />
+                      {fieldErrors.cvv && <div className="payment-field-error">{fieldErrors.cvv}</div>}
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'BANK_TRANSFER' && (
+                  <div className="payment-method-fields">
+                    <div className="payment-field">
+                      <label>Upload Receipt (JPG, PNG, PDF)</label>
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/jpeg,image/png"
+                        onChange={e => {
+                          const f = e.target.files?.[0] ?? null;
+                          setBankFile(f);
+                          setFieldErrors(prev => ({ ...prev, bankFile: '' }));
+                        }}
+                        onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateBankTransfer() }))}
+                      />
+                      {bankFile && (
+                        <div className="payment-file-hint">Selected: {bankFile.name}</div>
+                      )}
+                      {fieldErrors.bankFile && <div className="payment-field-error">{fieldErrors.bankFile}</div>}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  className="btn-pay"
+                  onClick={() => {
+                    if (!validateBeforeSubmit()) return;
+                    void handlePay();
+                  }}
+                  disabled={!canPay()}
+                >
                   {submitting ? 'Processing…' : `Pay ${fmt(payableAmount())}`}
                 </button>
               </>

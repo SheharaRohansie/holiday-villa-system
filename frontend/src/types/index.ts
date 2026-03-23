@@ -187,6 +187,15 @@ export interface PaymentProcessRequest {
   bookingId: number;
   paymentType: PaymentType;
   paymentMethod: PaymentMethod;
+
+  // CARD (optional; only required/used when paymentMethod === 'CARD')
+  cardNumber?: string;
+  cardType?: 'VISA' | 'MASTERCARD';
+  expiryDate?: string; // MM/YY
+  cvv?: string;
+
+  // BANK_TRANSFER (optional; only required/used when paymentMethod === 'BANK_TRANSFER')
+  bankTransferFile?: File;
 }
 
 export interface PaymentRecord {

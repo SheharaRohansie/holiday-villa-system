@@ -3,8 +3,34 @@ import type { PaymentProcessRequest, PaymentRecord, RevenueAnalytics } from '../
 
 // ── GUEST ──────────────────────────────────────────────────────────────────────
 
-export const processPaymentApi = (data: PaymentProcessRequest): Promise<PaymentRecord> =>
-  axiosInstance.post('/payments/pay', data).then(r => r.data);
+export const processPaymentApi = (data: PaymentProcessRequest): Promise<PaymentRecord> => {
+  // BANK_TRANSFER → multipart/form-data
+  if (data.paymentMethod === 'BANK_TRANSFER') {
+    const form = new FormData();
+    form.append('bookingId', String(data.bookingId));
+    form.append('paymentType', data.paymentType);
+    form.append('paymentMethod', data.paymentMethod);
+    if (data.bankTransferFile) {
+      form.append('file', data.bankTransferFile);
+    }
+
+    return axiosInstance.post('/payments/pay', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  }
+
+  // CASH / CARD → JSON
+  const payload: Omit<PaymentProcessRequest, 'bankTransferFile'> = {
+    bookingId: data.bookingId,
+    paymentType: data.paymentType,
+    paymentMethod: data.paymentMethod,
+    cardNumber: data.cardNumber,
+    cardType: data.cardType,
+    expiryDate: data.expiryDate,
+    cvv: data.cvv,
+  };
+  return axiosInstance.post('/payments/pay', payload).then(r => r.data);
+};
 
 export const getMyPaymentsApi = (): Promise<PaymentRecord[]> =>
   axiosInstance.get('/payments/my').then(r => r.data);
