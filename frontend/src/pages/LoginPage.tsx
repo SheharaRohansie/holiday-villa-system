@@ -4,6 +4,29 @@ import { useAuth } from '../context/AuthContext';
 import { loginApi } from '../api/authApi';
 import '../styles/AuthPages.css';
 
+type ApiErrorShape = {
+  message?: string;
+  errors?: Record<string, string>;
+};
+
+const getApiError = (err: unknown): { status?: number; message?: string; fieldErrors?: Record<string, string> } => {
+  const anyErr = err as any;
+  const status: number | undefined = anyErr?.response?.status;
+  const data: unknown = anyErr?.response?.data;
+
+  if (data && typeof data === 'object') {
+    const obj = data as ApiErrorShape;
+    if (obj.errors && typeof obj.errors === 'object') {
+      return { status, fieldErrors: obj.errors, message: obj.message };
+    }
+    if (typeof obj.message === 'string') return { status, message: obj.message };
+  }
+
+  if (typeof data === 'string') return { status, message: data };
+  if (typeof anyErr?.message === 'string') return { status, message: anyErr.message };
+  return { status, message: undefined };
+};
+
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -34,6 +57,7 @@ const LoginPage: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setErrors(prev => ({ ...prev, [e.target.name]: '' }));
+    setServerError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,8 +72,20 @@ const LoginPage: React.FC = () => {
       else if (response.role === 'STAFF') navigate('/staff/dashboard');
       else navigate('/guest/dashboard');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setServerError(error.response?.data?.message || 'Invalid email or password. Please try again.');
+      const { status, message, fieldErrors } = getApiError(err);
+
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        setServerError('');
+        return;
+      }
+
+      // Spring Security auth failures come back as 401 with a generic message.
+      if (status === 401) {
+        setServerError('Invalid email or password. Please try again.');
+      } else {
+        setServerError(message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

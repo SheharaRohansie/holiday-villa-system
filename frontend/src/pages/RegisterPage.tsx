@@ -5,6 +5,29 @@ import { registerApi } from '../api/authApi';
 import { COUNTRIES } from '../data/countries';
 import '../styles/AuthPages.css';
 
+type ApiErrorShape = {
+  message?: string;
+  errors?: Record<string, string>;
+};
+
+const getApiError = (err: unknown): { status?: number; message?: string; fieldErrors?: Record<string, string> } => {
+  const anyErr = err as any;
+  const status: number | undefined = anyErr?.response?.status;
+  const data: unknown = anyErr?.response?.data;
+
+  if (data && typeof data === 'object') {
+    const obj = data as ApiErrorShape;
+    if (obj.errors && typeof obj.errors === 'object') {
+      return { status, fieldErrors: obj.errors, message: obj.message };
+    }
+    if (typeof obj.message === 'string') return { status, message: obj.message };
+  }
+
+  if (typeof data === 'string') return { status, message: data };
+  if (typeof anyErr?.message === 'string') return { status, message: anyErr.message };
+  return { status, message: undefined };
+};
+
 interface FormState {
   firstName: string;
   lastName: string;
@@ -18,6 +41,7 @@ interface FormState {
 }
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
+const NIC_REGEX = /^(\d{12}|\d{9}[Vv])$/;
 
 const RegisterPage: React.FC = () => {
   const { login } = useAuth();
@@ -43,8 +67,43 @@ const RegisterPage: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const sanitizedValue = (() => {
+      if (name === 'phoneNumber') {
+        // Digits only
+        return value.replace(/\D/g, '');
+      }
+      if (name === 'nic') {
+        // Allow only digits and V/v (Sri Lankan NIC), keep V at the end.
+        const cleaned = value.replace(/[^0-9Vv]/g, '');
+        const digits = cleaned.replace(/[Vv]/g, '');
+        const hasV = /[Vv]/.test(cleaned);
+        // Limit to 12 digits max for the numeric-only format; keep optional trailing V.
+        const limitedDigits = digits.slice(0, 12);
+        const maybeV = hasV ? 'V' : '';
+        // If user is typing the old NIC format (9 digits + V), digits length will be <= 9.
+        return `${limitedDigits}${maybeV}`;
+      }
+      return value;
+    })();
+
+    setFormData(prev => {
+      // If nationality changes, clear the now-irrelevant identity doc field.
+      if (name === 'nationality') {
+        const nextIsSriLankan = value === 'Sri Lanka';
+        return {
+          ...prev,
+          nationality: value,
+          nic: nextIsSriLankan ? prev.nic : '',
+          passportNumber: nextIsSriLankan ? '' : prev.passportNumber,
+        };
+      }
+      return { ...prev, [name]: sanitizedValue };
+    });
     setErrors(prev => ({ ...prev, [name]: '' }));
+    if (name === 'nationality') {
+      setErrors(prev => ({ ...prev, nic: '', passportNumber: '' }));
+    }
+    setServerError('');
   };
 
   const validate = (): boolean => {
@@ -57,12 +116,13 @@ const RegisterPage: React.FC = () => {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
 
     if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
-    else if (!/^\+?[0-9]{8,15}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone must be 8-15 digits (may start with +)';
+    else if (!/^\d{8,15}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone must be 8-15 digits (numbers only)';
 
     if (!formData.nationality) newErrors.nationality = 'Nationality is required';
 
     if (isSriLankan) {
       if (!formData.nic.trim()) newErrors.nic = 'NIC is required for Sri Lankan nationals';
+      else if (!NIC_REGEX.test(formData.nic.trim())) newErrors.nic = 'NIC must be 12 digits, or 9 digits followed by V';
     } else if (formData.nationality) {
       if (!formData.passportNumber.trim()) newErrors.passportNumber = 'Passport number is required';
     }
@@ -104,13 +164,38 @@ const RegisterPage: React.FC = () => {
       login(response);
       navigate('/guest/dashboard');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string; errors?: Record<string, string> } } };
-      if (error.response?.data?.errors) {
-        const beErrors = error.response.data.errors as Record<string, string>;
-        setErrors(beErrors as Partial<FormState>);
-      } else {
-        setServerError(error.response?.data?.message || 'Registration failed. Please try again.');
+      const { status, message, fieldErrors } = getApiError(err);
+
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        setErrors(prev => ({ ...prev, ...(fieldErrors as Partial<FormState>) }));
+        setServerError('');
+        return;
       }
+
+      // Map common backend messages (IllegalArgumentException / conflict) to field-level errors.
+      const msg = (message || '').trim();
+      if (status === 409 && msg.toLowerCase().includes('email')) {
+        setErrors(prev => ({ ...prev, email: msg || 'Email already in use' }));
+        setServerError('');
+        return;
+      }
+      if (msg.toLowerCase().includes('passwords do not match')) {
+        setErrors(prev => ({ ...prev, confirmPassword: msg }));
+        setServerError('');
+        return;
+      }
+      if (msg.toLowerCase().includes('nic is required')) {
+        setErrors(prev => ({ ...prev, nic: msg }));
+        setServerError('');
+        return;
+      }
+      if (msg.toLowerCase().includes('passport number is required')) {
+        setErrors(prev => ({ ...prev, passportNumber: msg }));
+        setServerError('');
+        return;
+      }
+
+      setServerError(msg || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -167,7 +252,9 @@ const RegisterPage: React.FC = () => {
               <input
                 id="phoneNumber" name="phoneNumber" type="tel"
                 value={formData.phoneNumber} onChange={handleChange}
-                placeholder="+94771234567" className={errors.phoneNumber ? 'input-error' : ''}
+                placeholder="0712345678" className={errors.phoneNumber ? 'input-error' : ''}
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
               {errors.phoneNumber && <span className="field-error">{errors.phoneNumber}</span>}
             </div>
@@ -194,6 +281,8 @@ const RegisterPage: React.FC = () => {
                   value={formData.nic} onChange={handleChange}
                   placeholder="e.g. 990101234V or 199901012345"
                   className={errors.nic ? 'input-error' : ''}
+                  inputMode="text"
+                  autoCapitalize="characters"
                 />
                 {errors.nic && <span className="field-error">{errors.nic}</span>}
               </div>
