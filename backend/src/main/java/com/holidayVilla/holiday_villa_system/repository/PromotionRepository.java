@@ -33,14 +33,20 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
     );
 
     // Analytics helpers
-    @Query("SELECT COUNT(b) FROM Booking b WHERE b.appliedPromotion IS NOT NULL AND b.promotionAccepted = true")
+    @Query("SELECT COUNT(b) FROM Booking b " +
+           "WHERE b.appliedPromotion IS NOT NULL " +
+           "AND b.promotionAccepted = true " +
+           "AND b.status <> 'CANCELLED'")
     Long countBookingsWithPromotion();
 
-    @Query("SELECT COALESCE(SUM(b.discountAmount), 0) FROM Booking b WHERE b.promotionAccepted = true")
+    @Query("SELECT COALESCE(SUM(COALESCE(b.discountAmount, 0)), 0) FROM Booking b " +
+           "WHERE b.promotionAccepted = true " +
+           "AND b.status <> 'CANCELLED'")
     Double getTotalDiscountGiven();
 
     @Query("SELECT b.appliedPromotion.title, COUNT(b) FROM Booking b " +
            "WHERE b.appliedPromotion IS NOT NULL AND b.promotionAccepted = true " +
+           "AND b.status <> 'CANCELLED' " +
            "GROUP BY b.appliedPromotion.title ORDER BY COUNT(b) DESC")
     List<Object[]> getMostUsedPromotions();
 }

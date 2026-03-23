@@ -23,15 +23,24 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // ── Analytics ──────────────────────────────────────────────────────────────
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentStatus = 'SUCCESS'")
+            @Query("SELECT COALESCE(SUM(p.amount), 0) " +
+                "FROM Payment p JOIN p.booking b " +
+                "WHERE p.paymentStatus = com.holidayVilla.holiday_villa_system.entity.PaymentTransactionStatus.SUCCESS " +
+                "AND b.status <> com.holidayVilla.holiday_villa_system.entity.BookingStatus.CANCELLED")
     Double getTotalRevenue();
 
-    @Query("SELECT YEAR(p.paymentDate), MONTH(p.paymentDate), COALESCE(SUM(p.amount), 0) " +
-           "FROM Payment p WHERE p.paymentStatus = 'SUCCESS' " +
+            @Query("SELECT YEAR(p.paymentDate), MONTH(p.paymentDate), COALESCE(SUM(p.amount), 0) " +
+                "FROM Payment p JOIN p.booking b " +
+                "WHERE p.paymentStatus = com.holidayVilla.holiday_villa_system.entity.PaymentTransactionStatus.SUCCESS " +
+                "AND b.status <> com.holidayVilla.holiday_villa_system.entity.BookingStatus.CANCELLED " +
            "GROUP BY YEAR(p.paymentDate), MONTH(p.paymentDate) " +
            "ORDER BY YEAR(p.paymentDate), MONTH(p.paymentDate)")
     List<Object[]> getMonthlyRevenue();
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentStatus = 'SUCCESS' AND p.paymentType = :type")
+            @Query("SELECT COALESCE(SUM(p.amount), 0) " +
+                "FROM Payment p JOIN p.booking b " +
+                "WHERE p.paymentStatus = com.holidayVilla.holiday_villa_system.entity.PaymentTransactionStatus.SUCCESS " +
+                "AND b.status <> com.holidayVilla.holiday_villa_system.entity.BookingStatus.CANCELLED " +
+                "AND p.paymentType = :type")
     Double getTotalByPaymentType(@Param("type") PaymentType type);
 }

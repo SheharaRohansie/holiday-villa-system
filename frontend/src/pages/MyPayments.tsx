@@ -18,7 +18,16 @@ const typeBadgeClass = (type: string) => {
   if (type === 'ADVANCE')   return 'badge badge-advance';
   if (type === 'FULL')      return 'badge badge-full';
   if (type === 'REMAINING') return 'badge badge-remaining';
+  if (type === 'CANCELLED') return 'badge badge-failed';
   return 'badge';
+};
+
+const displayPaymentType = (p: PaymentRecord) => {
+  if (p.bookingStatus === 'CANCELLED') return 'CANCELLED';
+  // UX tweak: once the booking is fully paid, showing the last transaction as
+  // "REMAINING" is confusing. Display it as FULL instead.
+  if (p.paymentType === 'REMAINING' && p.bookingPaymentStatus === 'FULLY_PAID' && p.remainingAmount === 0) return 'FULL';
+  return p.paymentType;
 };
 
 const MyPayments: React.FC = () => {
@@ -96,7 +105,12 @@ const MyPayments: React.FC = () => {
                     </td>
                     <td>#{p.bookingId}</td>
                     <td>{p.villaName}</td>
-                    <td><span className={typeBadgeClass(p.paymentType)}>{p.paymentType}</span></td>
+                    <td>
+                      {(() => {
+                        const displayType = displayPaymentType(p);
+                        return <span className={typeBadgeClass(displayType)}>{displayType}</span>;
+                      })()}
+                    </td>
                     <td>{p.paymentMethod.replace('_', ' ')}</td>
                     <td style={{ fontWeight: 700, color: '#2e7d32' }}>{fmt(p.amount)}</td>
                     <td style={{ color: p.remainingAmount > 0 ? '#e65100' : '#2e7d32', fontWeight: 600 }}>

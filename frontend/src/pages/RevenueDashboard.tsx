@@ -25,7 +25,14 @@ const typeBadgeClass = (type: string) => {
   if (type === 'ADVANCE')   return 'badge badge-advance';
   if (type === 'FULL')      return 'badge badge-full';
   if (type === 'REMAINING') return 'badge badge-remaining';
+  if (type === 'CANCELLED') return 'badge badge-failed';
   return 'badge';
+};
+
+const displayPaymentType = (p: PaymentRecord) => {
+  if (p.bookingStatus === 'CANCELLED') return 'CANCELLED';
+  if (p.paymentType === 'REMAINING' && p.bookingPaymentStatus === 'FULLY_PAID' && p.remainingAmount === 0) return 'FULL';
+  return p.paymentType;
 };
 
 const formatDt = (iso: string) => {
@@ -195,7 +202,12 @@ const RevenueDashboard: React.FC = () => {
                     <td>#{p.bookingId}</td>
                     <td>{p.guestName}</td>
                     <td>{p.villaName}</td>
-                    <td><span className={typeBadgeClass(p.paymentType)}>{p.paymentType}</span></td>
+                    <td>
+                      {(() => {
+                        const displayType = displayPaymentType(p);
+                        return <span className={typeBadgeClass(displayType)}>{displayType}</span>;
+                      })()}
+                    </td>
                     <td>{p.paymentMethod.replace('_', ' ')}</td>
                     <td style={{ fontWeight: 700, color: '#2e7d32' }}>
                       {fmt(p.amount)}

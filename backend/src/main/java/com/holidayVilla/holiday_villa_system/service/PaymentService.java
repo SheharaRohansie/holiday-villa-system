@@ -193,7 +193,7 @@ public class PaymentService {
 
         long totalBookings     = bookingRepository.count();
         long completedBookings = bookingRepository.countByStatus(BookingStatus.COMPLETED);
-        long pendingPayments   = bookingRepository.countByPaymentStatus(PaymentStatus.PARTIALLY_PAID);
+        long pendingPayments   = bookingRepository.countByPaymentStatusAndStatusNot(PaymentStatus.PARTIALLY_PAID, BookingStatus.CANCELLED);
 
         // Discount / promotion analytics
         Double totalDiscountGiven  = promotionRepository.getTotalDiscountGiven();
