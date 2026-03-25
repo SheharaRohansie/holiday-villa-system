@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { registerApi } from '../api/authApi';
+import { sendRegistrationOtpApi } from '../api/authApi';
 import { COUNTRIES } from '../data/countries';
 import '../styles/AuthPages.css';
 
@@ -44,7 +43,6 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\
 const NIC_REGEX = /^(\d{12}|\d{9}[Vv])$/;
 
 const RegisterPage: React.FC = () => {
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState<FormState>({
@@ -160,9 +158,8 @@ const RegisterPage: React.FC = () => {
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       };
-      const response = await registerApi(payload);
-      login(response);
-      navigate('/guest/dashboard');
+      await sendRegistrationOtpApi(payload.email);
+      navigate('/register/verify-otp', { state: { registrationDraft: payload } });
     } catch (err: unknown) {
       const { status, message, fieldErrors } = getApiError(err);
 

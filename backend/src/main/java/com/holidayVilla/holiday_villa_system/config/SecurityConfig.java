@@ -44,8 +44,11 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
+                .requestMatchers(HttpMethod.POST, "/api/auth/send-otp").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/send-otp").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/reset").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                 // Public villa read-only access (guests and unauthenticated users)
                 .requestMatchers(HttpMethod.GET, "/api/villas").permitAll()

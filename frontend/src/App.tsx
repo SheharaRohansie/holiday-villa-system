@@ -4,6 +4,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OTPVerification from './pages/OTPVerification';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import GuestDashboard from './pages/GuestDashboard';
@@ -54,6 +57,54 @@ function AppContent() {
               <>
                 <Navbar />
                 <RegisterPage />
+              </>
+            )
+          }
+        />
+
+        <Route
+          path="/register/verify-otp"
+          element={
+            user ? <Navigate to="/guest/dashboard" replace /> : (
+              <>
+                <Navbar />
+                <OTPVerification />
+              </>
+            )
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            user ? (
+              <Navigate to={
+                user.role === 'ADMIN' ? '/admin/dashboard' :
+                user.role === 'STAFF' ? '/staff/dashboard' :
+                '/guest/dashboard'
+              } replace />
+            ) : (
+              <>
+                <Navbar />
+                <ForgotPassword />
+              </>
+            )
+          }
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            user ? (
+              <Navigate to={
+                user.role === 'ADMIN' ? '/admin/dashboard' :
+                user.role === 'STAFF' ? '/staff/dashboard' :
+                '/guest/dashboard'
+              } replace />
+            ) : (
+              <>
+                <Navbar />
+                <ResetPassword />
               </>
             )
           }

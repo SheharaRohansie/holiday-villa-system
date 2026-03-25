@@ -1,29 +1,53 @@
 package com.holidayVilla.holiday_villa_system.service;
 
 import com.holidayVilla.holiday_villa_system.entity.Payment;
+import com.holidayVilla.holiday_villa_system.config.AppMailProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.format.DateTimeFormatter;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class EmailService {
 
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:noreply@holidayvilla.lk}")
-    private String fromEmail;
-
-    @Value("${spring.mail.enabled:false}")
-    private boolean emailEnabled;
+    private final JavaMailSender mailSender;
+    private final AppMailProperties mailProperties;
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
+
+    @PostConstruct
+    void logMailConfig() {
+        log.info("Mail config: enabled={}, app.mail.username={}", mailProperties.isEnabled(), mailProperties.getUsername());
+    }
+
+    public void sendVerificationCode(String toEmail, String otp) {
+        String body = "Your OTP code is: %s. It will expire in 5 minutes.".formatted(otp);
+
+        if (mailProperties.isEnabled()) {
+            try {
+                String fromEmail = mailProperties.getUsername();
+                log.info("Sending verification email FROM {} TO {}", fromEmail, toEmail);
+                SimpleMailMessage msg = new SimpleMailMessage();
+                msg.setFrom(fromEmail);
+                msg.setTo(toEmail);
+                msg.setSubject("Verification Code");
+                msg.setText(body);
+                mailSender.send(msg);
+                log.info("Verification code email sent to {}", toEmail);
+            } catch (Exception e) {
+                log.error("Failed to send verification email to {}: {}", toEmail, e.getMessage());
+                throw new IllegalStateException("Failed to send OTP email. Please check SMTP settings.");
+            }
+        } else {
+            logEmailToConsole(toEmail, "Verification Code", body);
+        }
+    }
 
     public void sendPaymentConfirmation(Payment payment) {
         String guestName   = payment.getUser().getFirstName() + " " + payment.getUser().getLastName();
@@ -57,8 +81,9 @@ public class EmailService {
                 Holiday Villa Resort
                 """.formatted(guestName, villaName, paid, txRef, payDate, bookStatus, remaining);
 
-        if (emailEnabled && mailSender != null) {
+        if (mailProperties.isEnabled()) {
             try {
+                String fromEmail = mailProperties.getUsername();
                 SimpleMailMessage msg = new SimpleMailMessage();
                 msg.setFrom(fromEmail);
                 msg.setTo(payment.getUser().getEmail());
@@ -67,19 +92,20 @@ public class EmailService {
                 mailSender.send(msg);
                 log.info("Payment confirmation email sent to {}", payment.getUser().getEmail());
             } catch (Exception e) {
-                log.warn("Failed to send email ({}), falling back to console.", e.getMessage());
-                logEmailToConsole(payment.getUser().getEmail(), body);
+                log.error("Failed to send payment email to {}: {}", payment.getUser().getEmail(), e.getMessage());
+                throw new IllegalStateException("Failed to send payment email. Please check SMTP settings.");
             }
         } else {
-            logEmailToConsole(payment.getUser().getEmail(), body);
+            logEmailToConsole(payment.getUser().getEmail(), "Payment Confirmation - Holiday Villa Resort", body);
         }
     }
 
-    private void logEmailToConsole(String toEmail, String body) {
+    private void logEmailToConsole(String toEmail, String subject, String body) {
         log.info("\n" + "=".repeat(60) +
                  "\n  [MOCK EMAIL] To: {}" +
-                 "\n  Subject: Payment Confirmation - Holiday Villa Resort" +
+                 "\n  Subject: {}" +
                  "\n{}" +
-                 "\n" + "=".repeat(60), toEmail, body);
+                 "\n" + "=".repeat(60), toEmail, subject, body);
     }
 }
+

@@ -2,6 +2,7 @@ package com.holidayVilla.holiday_villa_system.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 @Data
 public class RegisterRequest {
@@ -17,6 +18,7 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Phone number is required")
+    @JsonAlias("phone")
     @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Phone number must be 8-15 digits")
     private String phoneNumber;
 
@@ -37,4 +39,8 @@ public class RegisterRequest {
 
     @NotBlank(message = "Confirm password is required")
     private String confirmPassword;
+
+    @NotBlank(message = "OTP is required")
+    @Pattern(regexp = "^\\d{6}$", message = "OTP must be 6 digits")
+    private String otp;
 }

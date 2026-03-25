@@ -6,6 +6,7 @@ import com.holidayVilla.holiday_villa_system.dto.RegisterRequest;
 import com.holidayVilla.holiday_villa_system.entity.Role;
 import com.holidayVilla.holiday_villa_system.entity.User;
 import com.holidayVilla.holiday_villa_system.exception.EmailAlreadyExistsException;
+import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import com.holidayVilla.holiday_villa_system.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +26,16 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final OtpService otpService;
 
-    public AuthResponse register(RegisterRequest request) {
+    public void sendRegistrationOtp(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException("Email already in use: " + email);
+        }
+        otpService.sendOtp(email);
+    }
+
+    public void register(RegisterRequest request) {
         // Validate password confirmation
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
@@ -39,6 +48,9 @@ public class AuthService {
 
         // Validate NIC / Passport
         validateIdentityDocument(request.getNationality(), request.getNic(), request.getPassportNumber());
+
+        // Verify OTP BEFORE creating the account
+        otpService.verifyAndConsume(request.getEmail(), request.getOtp());
 
         User user = User.builder()
                 .firstName(request.getFirstName())
@@ -53,19 +65,22 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtUtil.generateToken(userDetails);
-
-        return AuthResponse.builder()
-                .token(token)
-                .role(user.getRole().name())
-                .userId(user.getId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .build();
     }
+
+        public void sendForgotPasswordOtp(String email) {
+        userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        otpService.sendOtp(email);
+        }
+
+        public void resetPassword(String email, String otp, String newPassword) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        otpService.verifyAndConsume(email, otp);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        }
 
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(

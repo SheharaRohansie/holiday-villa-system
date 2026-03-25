@@ -30,6 +30,14 @@ export interface RegisterRequest {
   confirmPassword: string;
 }
 
+export interface RegisterWithOtpRequest extends RegisterRequest {
+  otp: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
 export interface CreateStaffRequest {
   firstName: string;
   lastName: string;
