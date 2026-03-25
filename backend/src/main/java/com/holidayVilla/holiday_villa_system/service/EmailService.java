@@ -96,7 +96,7 @@ public class EmailService {
                 throw new IllegalStateException("Failed to send payment email. Please check SMTP settings.");
             }
         } else {
-            logEmailToConsole(payment.getUser().getEmail(), "Payment Confirmation - Holiday Villa Resort", body);
+            logEmailToConsole(payment.getUser().getEmail(), "Payment Confirmation - ", body);
         }
     }
 

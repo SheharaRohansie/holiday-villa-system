@@ -50,6 +50,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/send-otp").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/reset").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                // Public static villa images
+                .requestMatchers(HttpMethod.GET, "/uploads/villas/**").permitAll()
                 // Public villa read-only access (guests and unauthenticated users)
                 .requestMatchers(HttpMethod.GET, "/api/villas").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/villas/**").permitAll()

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
-import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi } from '../api/villaApi';
+import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi, uploadVillaImagesApi } from '../api/villaApi';
 import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
 import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deletePromotionApi } from '../api/promotionApi';
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest, MealPlan } from '../types';
@@ -23,7 +23,7 @@ const emptyVillaForm = (): VillaRequest => ({
   description: '',
   type: 'DELUXE',
   amenities: [],
-  imageUrls: ['', '', ''],
+  imageUrls: [],
   pricing: [],
 });
 
@@ -53,6 +53,11 @@ const AdminDashboard: React.FC = () => {
   const [villaForm, setVillaForm] = useState<VillaRequest>(emptyVillaForm());
   const [villaErrors, setVillaErrors] = useState<Partial<Record<keyof VillaRequest, string>>>({});
   const [editingVillaId, setEditingVillaId] = useState<number | null>(null);
+
+  const [villaImageFiles, setVillaImageFiles] = useState<File[]>([]);
+  const [villaImagePreviews, setVillaImagePreviews] = useState<string[]>([]);
+  const [villaImageError, setVillaImageError] = useState<string>('');
+  const [villaDragActive, setVillaDragActive] = useState(false);
 
   // Bookings state
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -89,6 +94,67 @@ const AdminDashboard: React.FC = () => {
     loadBookings();
     loadPromotions();
   }, []);
+
+  useEffect(() => {
+    const urls = villaImageFiles.map(f => URL.createObjectURL(f));
+    setVillaImagePreviews(urls);
+    return () => {
+      urls.forEach(u => URL.revokeObjectURL(u));
+    };
+  }, [villaImageFiles]);
+
+  const addVillaImageFiles = (files: File[]) => {
+    const maxFiles = 5;
+    const maxBytes = 5 * 1024 * 1024;
+    const nextValid: File[] = [];
+    const errors: string[] = [];
+
+    for (const f of files) {
+      if (!f) continue;
+      const name = (f.name || '').toLowerCase();
+      const okExt = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+      const okType = f.type === 'image/jpeg' || f.type === 'image/png';
+
+      if (!okExt && !okType) {
+        errors.push('Only JPG, JPEG, or PNG images are allowed.');
+        continue;
+      }
+      if (f.size > maxBytes) {
+        errors.push('Each image must be 5MB or less.');
+        continue;
+      }
+      nextValid.push(f);
+    }
+
+    setVillaImageFiles(prev => {
+      const seen = new Set(prev.map(p => `${p.name}:${p.size}:${p.lastModified}`));
+      const merged = [...prev];
+      for (const f of nextValid) {
+        const key = `${f.name}:${f.size}:${f.lastModified}`;
+        if (seen.has(key)) continue;
+        merged.push(f);
+        seen.add(key);
+      }
+
+      if (merged.length > maxFiles) {
+        errors.push(`You can only upload up to ${maxFiles} images per villa.`);
+        return merged.slice(0, maxFiles);
+      }
+      return merged;
+    });
+
+    setVillaImageError(errors.length ? errors[0] : '');
+  };
+
+  const removeVillaImageAt = (index: number) => {
+    setVillaImageFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearVillaImageSelection = () => {
+    setVillaImageFiles([]);
+    setVillaImageError('');
+    setVillaDragActive(false);
+  };
 
   const loadBookings = async () => {
     try {
@@ -219,9 +285,11 @@ const AdminDashboard: React.FC = () => {
     const errs: Partial<Record<keyof VillaRequest, string>> = {};
     if (!villaForm.name.trim()) errs.name = 'Villa name is required';
     if (!villaForm.description.toString().trim()) errs.description = 'Description is required';
-    const images = villaForm.imageUrls.filter(u => u.trim() !== '');
-    if (images.length === 0) errs.imageUrls = 'At least one image URL is required';
-    if (images.length > 3) errs.imageUrls = 'You can only add up to 3 images';
+
+    const existing = (villaForm.imageUrls ?? []).filter(u => u.trim() !== '');
+    const effectiveCount = villaImageFiles.length > 0 ? villaImageFiles.length : existing.length;
+    if (effectiveCount === 0) errs.imageUrls = 'At least one image is required';
+    if (effectiveCount > 5) errs.imageUrls = 'You can only upload up to 5 images';
 
     // Pricing matrix validation
     const mealPlans: MealPlan[] = ['ROOM_ONLY', 'BED_AND_BREAKFAST', 'HALF_BOARD', 'FULL_BOARD'];
@@ -251,10 +319,10 @@ const AdminDashboard: React.FC = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const buildVillaPayload = (): VillaRequest => ({
+  const buildVillaPayload = (imageUrlsOverride?: string[]): VillaRequest => ({
     ...villaForm,
     amenities: (villaForm.amenities as string[]).filter(Boolean),
-    imageUrls: villaForm.imageUrls.filter(u => u.trim() !== ''),
+    imageUrls: (imageUrlsOverride ?? villaForm.imageUrls).filter(u => u.trim() !== ''),
     pricing: (villaForm.pricing ?? []).map(p => ({
       guestCount: Number(p.guestCount),
       mealPlan: p.mealPlan,
@@ -262,13 +330,22 @@ const AdminDashboard: React.FC = () => {
     })),
   });
 
+  const resolveVillaImageUrls = async (): Promise<string[]> => {
+    if (villaImageFiles.length > 0) {
+      return uploadVillaImagesApi(villaImageFiles);
+    }
+    return (villaForm.imageUrls ?? []).filter(u => u.trim() !== '');
+  };
+
   const handleAddVilla = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateVillaForm()) return;
     try {
-      await addVillaApi(buildVillaPayload());
+      const imageUrls = await resolveVillaImageUrls();
+      await addVillaApi(buildVillaPayload(imageUrls));
       setMessage('Villa added successfully!');
       setVillaForm(emptyVillaForm());
+      clearVillaImageSelection();
       await loadVillas();
       setActiveTab('villas');
     } catch (err: unknown) {
@@ -281,9 +358,11 @@ const AdminDashboard: React.FC = () => {
     e.preventDefault();
     if (!editingVillaId || !validateVillaForm()) return;
     try {
-      await updateVillaApi(editingVillaId, buildVillaPayload());
+      const imageUrls = await resolveVillaImageUrls();
+      await updateVillaApi(editingVillaId, buildVillaPayload(imageUrls));
       setMessage('Villa updated successfully!');
       setVillaForm(emptyVillaForm());
+      clearVillaImageSelection();
       setEditingVillaId(null);
       await loadVillas();
       setActiveTab('villas');
@@ -301,16 +380,15 @@ const AdminDashboard: React.FC = () => {
 
   const startEditVilla = async (villa: Villa) => {
     setEditingVillaId(villa.id);
+    clearVillaImageSelection();
     try {
       const data = await getAdminVillaByIdApi(villa.id);
-      const urls = [...(data.villa.imageUrls ?? [])];
-      while (urls.length < 3) urls.push('');
       setVillaForm({
         name: data.villa.name,
         description: data.villa.description,
         type: (data.villa.type ?? 'DELUXE'),
         amenities: data.villa.amenities ?? [],
-        imageUrls: urls,
+        imageUrls: (data.villa.imageUrls ?? []),
         pricing: (data.pricing ?? []).map(r => ({
           guestCount: r.guestCount,
           mealPlan: r.mealPlan,
@@ -577,7 +655,7 @@ const AdminDashboard: React.FC = () => {
           <div className="tab-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 className="tab-title">Manage Villas</h2>
-              <button className="btn-primary-action" onClick={() => { setVillaForm(emptyVillaForm()); setVillaErrors({}); setActiveTab('add-villa'); }}>
+              <button className="btn-primary-action" onClick={() => { setVillaForm(emptyVillaForm()); clearVillaImageSelection(); setVillaErrors({}); setActiveTab('add-villa'); }}>
                 ➕ Add New Villa
               </button>
             </div>
@@ -591,11 +669,22 @@ const AdminDashboard: React.FC = () => {
             <h2 className="tab-title">Add New Villa</h2>
             <div className="form-card">
               <form onSubmit={handleAddVilla} noValidate>
-                <VillaFormFields form={villaForm} setForm={setVillaForm} errors={villaErrors} />
+                <VillaFormFields
+                  form={villaForm}
+                  setForm={setVillaForm}
+                  errors={villaErrors}
+                  imageFiles={villaImageFiles}
+                  imagePreviews={villaImagePreviews}
+                  imageError={villaImageError}
+                  dragActive={villaDragActive}
+                  setDragActive={setVillaDragActive}
+                  onAddFiles={addVillaImageFiles}
+                  onRemoveFile={removeVillaImageAt}
+                />
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                   <button type="submit" className="btn-primary-action">Add Villa</button>
                   <button type="button" className="btn-primary-action" style={{ background: '#888' }}
-                    onClick={() => setActiveTab('villas')}>Cancel</button>
+                    onClick={() => { clearVillaImageSelection(); setActiveTab('villas'); }}>Cancel</button>
                 </div>
               </form>
             </div>
@@ -608,11 +697,22 @@ const AdminDashboard: React.FC = () => {
             <h2 className="tab-title">Edit Villa</h2>
             <div className="form-card">
               <form onSubmit={handleEditVillaSave} noValidate>
-                <VillaFormFields form={villaForm} setForm={setVillaForm} errors={villaErrors} />
+                <VillaFormFields
+                  form={villaForm}
+                  setForm={setVillaForm}
+                  errors={villaErrors}
+                  imageFiles={villaImageFiles}
+                  imagePreviews={villaImagePreviews}
+                  imageError={villaImageError}
+                  dragActive={villaDragActive}
+                  setDragActive={setVillaDragActive}
+                  onAddFiles={addVillaImageFiles}
+                  onRemoveFile={removeVillaImageAt}
+                />
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                   <button type="submit" className="btn-primary-action">Update Villa</button>
                   <button type="button" className="btn-primary-action" style={{ background: '#888' }}
-                    onClick={() => setActiveTab('villas')}>Cancel</button>
+                    onClick={() => { clearVillaImageSelection(); setActiveTab('villas'); }}>Cancel</button>
                 </div>
               </form>
             </div>
@@ -817,7 +917,43 @@ const VillaFormFields: React.FC<{
   form: VillaRequest;
   setForm: React.Dispatch<React.SetStateAction<VillaRequest>>;
   errors: Partial<Record<keyof VillaRequest, string>>;
-}> = ({ form, setForm, errors }) => {
+  imageFiles: File[];
+  imagePreviews: string[];
+  imageError: string;
+  dragActive: boolean;
+  setDragActive: React.Dispatch<React.SetStateAction<boolean>>;
+  onAddFiles: (files: File[]) => void;
+  onRemoveFile: (index: number) => void;
+}> = ({ form, setForm, errors, imageFiles, imagePreviews, imageError, dragActive, setDragActive, onAddFiles, onRemoveFile }) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const onPickFiles = () => fileInputRef.current?.click();
+
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) onAddFiles(files);
+    // allow selecting the same file again
+    e.target.value = '';
+  };
+
+  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length > 0) onAddFiles(files);
+  };
+
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+  };
+
+  const existingUrls = (form.imageUrls ?? []).filter(u => u?.trim());
   const mealPlans: { value: MealPlan; label: string }[] = [
     { value: 'ROOM_ONLY', label: 'Room Only' },
     { value: 'BED_AND_BREAKFAST', label: 'Bed & Breakfast' },
@@ -948,20 +1084,70 @@ const VillaFormFields: React.FC<{
         </div>
       </div>
 
-      {[0, 1, 2].map(i => (
-        <div className="form-group" key={i}>
-          <label>Image URL {i + 1} {i === 0 ? '*' : '(optional)'}</label>
-          <input value={form.imageUrls[i] || ''}
-            onChange={e => setForm(p => {
-              const urls = [...p.imageUrls];
-              urls[i] = e.target.value;
-              return { ...p, imageUrls: urls };
-            })}
-            placeholder="https://example.com/image.jpg"
-            className={i === 0 && errors.imageUrls ? 'input-error' : ''} />
-          {i === 0 && errors.imageUrls && <span className="field-error">{errors.imageUrls}</span>}
+      <div className="form-group villa-form-full">
+        <label>Images *</label>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+          multiple
+          onChange={onFileInputChange}
+          style={{ display: 'none' }}
+        />
+
+        <div
+          className={`villa-upload-dropzone ${dragActive ? 'drag-active' : ''}`}
+          onClick={onPickFiles}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') onPickFiles();
+          }}
+        >
+          Drag & drop images here or click to upload
         </div>
-      ))}
+
+        {(errors.imageUrls || imageError) && (
+          <span className="field-error">{errors.imageUrls || imageError}</span>
+        )}
+
+        {imagePreviews.length > 0 ? (
+          <div className="villa-upload-previews">
+            {imagePreviews.map((src, i) => (
+              <div className="villa-upload-thumb" key={`${src}-${i}`}>
+                <img src={src} alt={`Selected ${i + 1}`} />
+                <button
+                  type="button"
+                  className="villa-upload-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFile(i);
+                  }}
+                  aria-label="Remove image"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : existingUrls.length > 0 ? (
+          <div className="villa-upload-previews">
+            {existingUrls.map((src, i) => (
+              <div className="villa-upload-thumb" key={`${src}-${i}`}>
+                <img src={src} alt={`Current ${i + 1}`} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {imageFiles.length > 0 && (
+          <div className="villa-upload-meta">{imageFiles.length} file(s) selected</div>
+        )}
+      </div>
     </div>
   );
 };

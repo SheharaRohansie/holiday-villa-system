@@ -318,6 +318,71 @@
 
 .villa-form-full { grid-column: 1 / -1; }
 
+.villa-upload-dropzone {
+  border: 2px dashed #0077b6;
+  border-radius: 12px;
+  padding: 1.1rem;
+  text-align: center;
+  color: #023047;
+  background: #f4f7fb;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.villa-upload-dropzone.drag-active {
+  background: #e0f4fd;
+  border-color: #00b4d8;
+}
+
+.villa-upload-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.villa-upload-thumb {
+  position: relative;
+  width: 100%;
+  padding-top: 70%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+.villa-upload-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.villa-upload-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.villa-upload-remove:hover { background: rgba(0, 0, 0, 0.75); }
+
+.villa-upload-meta {
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
 /* ===== GUEST DASHBOARD VILLAS TAB ===== */
 .guest-villas-grid {
   display: grid;

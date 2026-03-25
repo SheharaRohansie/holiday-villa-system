@@ -25,10 +25,10 @@ public class VillaRequestDTO {
     // Passed as a list; stored joined by commas
     private List<String> amenities;
 
-    @NotNull(message = "At least one image URL is required")
-    @Size(min = 1, max = 3, message = "Images must be between 1 and 3")
+    @NotNull(message = "At least one image is required")
+    @Size(min = 1, max = 5, message = "Images must be between 1 and 5")
     @JsonAlias("images")
-    private List<@NotBlank(message = "Image URL must not be blank") String> imageUrls;
+    private List<@NotBlank(message = "Image path must not be blank") String> imageUrls;
 
     @NotNull(message = "Pricing is required")
     @Size(min = 1, message = "Pricing is required")

@@ -35,7 +35,7 @@ const HomePage: React.FC = () => {
           <div className="hero-content">
             <h1 className="hero-title">Welcome to The Country House</h1>
             <p className="hero-subtitle">
-              Experience luxury and serenity by the ocean — where every moment is a memory.
+              Experience luxury and serenity by the tea estates — where every moment is a memory.
             </p>
             {!isAuthenticated ? (
               <div className="hero-actions">
@@ -157,7 +157,7 @@ const HomePage: React.FC = () => {
           <div className="about-map">
             <div className="map-placeholder">
               <span>📍</span>
-              <p>Southern Coast, Sri Lanka</p>
+              <p>297, Morris road, Galle, Sri Lanka</p>
               <small>GPS: 6.0535° N, 80.2210° E</small>
             </div>
           </div>
@@ -197,12 +197,12 @@ const HomePage: React.FC = () => {
           <div className="footer-contact">
             <h4>Contact Us</h4>
             <p>📞 +94 77 123 4567</p>
-            <p>✉️ info@holidayvilla.com</p>
-            <p>📍 Southern Coast, Sri Lanka</p>
+            <p>✉️ countryhouse815@gmail.com</p>
+            <p>📍 297, Morris road, Galle, Sri Lanka</p>
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© 2026 Holiday Villa Resort. All rights reserved.</p>
+          <p>© 2026 The Country House. All rights reserved.</p>
         </div>
       </footer>
     </div>

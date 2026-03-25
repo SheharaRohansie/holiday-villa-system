@@ -10,12 +10,21 @@ import com.holidayVilla.holiday_villa_system.service.BookingService;
 import com.holidayVilla.holiday_villa_system.service.VillaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -59,13 +68,13 @@ public class VillaController {
                 .body(new MessageResponse("Villa created successfully"));
     }
 
-    @GetMapping("/api/admin/villas/{id}")
+    @GetMapping("/api/admin/villas/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AdminVillaResponse> getAdminVillaById(@PathVariable Long id) {
         return ResponseEntity.ok(villaService.getAdminVillaById(id));
     }
 
-    @PutMapping("/api/admin/villas/{id}")
+    @PutMapping("/api/admin/villas/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> updateVilla(
             @PathVariable Long id,
@@ -74,10 +83,54 @@ public class VillaController {
         return ResponseEntity.ok(new MessageResponse("Villa updated successfully"));
     }
 
-    @DeleteMapping("/api/admin/villas/{id}")
+    @DeleteMapping("/api/admin/villas/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteVilla(@PathVariable Long id) {
         villaService.deleteVilla(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(value = {"/api/admin/villas/upload-images", "/api/admin/villas/upload-images/"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<String>> uploadVillaImages(
+            @RequestPart("images") List<MultipartFile> images) throws IOException {
+
+        if (images == null || images.isEmpty()) {
+            throw new IllegalArgumentException("At least one image is required.");
+        }
+
+        int maxImages = 5;
+        if (images.size() > maxImages) {
+            throw new IllegalArgumentException("You can upload up to " + maxImages + " images per villa.");
+        }
+
+        long maxBytes = 5L * 1024L * 1024L;
+        Path dir = Paths.get("uploads", "villas");
+        Files.createDirectories(dir);
+
+        List<String> storedPaths = new ArrayList<>();
+        for (MultipartFile file : images) {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("Image file must not be empty.");
+            }
+            if (file.getSize() > maxBytes) {
+                throw new IllegalArgumentException("Each image must be 5MB or less.");
+            }
+
+            String originalName = (file.getOriginalFilename() == null) ? "" : file.getOriginalFilename().toLowerCase();
+            boolean okExt = originalName.endsWith(".jpg") || originalName.endsWith(".jpeg") || originalName.endsWith(".png");
+            if (!okExt) {
+                throw new IllegalArgumentException("Only JPG, JPEG, or PNG images are allowed.");
+            }
+
+            String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : "";
+            String filename = "villa-" + UUID.randomUUID() + ext;
+            Path target = dir.resolve(filename).normalize();
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            storedPaths.add(("/uploads/villas/" + filename).replace('\\', '/'));
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(storedPaths);
     }
 }

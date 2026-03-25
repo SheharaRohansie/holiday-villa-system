@@ -26,3 +26,14 @@ export const updateVillaApi = (id: number, data: VillaRequest): Promise<{ messag
 
 export const deleteVillaApi = (id: number): Promise<void> =>
   axiosInstance.delete(`/admin/villas/${id}`).then(r => r.data);
+
+export const uploadVillaImagesApi = (images: File[]): Promise<string[]> => {
+  const formData = new FormData();
+  images.forEach(file => formData.append('images', file));
+
+  return axiosInstance
+    .post('/admin/villas/upload-images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then(r => r.data);
+};

@@ -45,7 +45,7 @@ public class InvoiceService {
                                   ? payment.getPaymentDate().format(DATETIME_FMT) : "N/A";
 
             // ── Header ─────────────────────────────────────────────────────────
-            doc.add(new Paragraph("HOLIDAY VILLA RESORT")
+            doc.add(new Paragraph("THE COUNTRY HOUSE")
                     .setBold().setFontSize(22)
                     .setFontColor(BRAND_BLUE)
                     .setTextAlignment(TextAlignment.CENTER));
@@ -105,7 +105,7 @@ public class InvoiceService {
             doc.add(new LineSeparator(new SolidLine()).setMarginTop(16).setMarginBottom(8));
 
             // ── Footer ─────────────────────────────────────────────────────────
-            doc.add(new Paragraph("Thank you for choosing Holiday Villa Resort!")
+            doc.add(new Paragraph("Thank you for choosing The Country House!")
                     .setItalic().setFontSize(10)
                     .setFontColor(LIGHT_BLUE)
                     .setTextAlignment(TextAlignment.CENTER));
