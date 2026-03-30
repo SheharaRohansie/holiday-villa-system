@@ -48,8 +48,8 @@ public class ReviewService {
             throw new IllegalStateException("You have already reviewed this stay.");
         }
 
-        Villa villa = villaRepository.findById(dto.getVillaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Villa not found with id: " + dto.getVillaId()));
+        Villa villa = villaRepository.findByIdAndIsDeletedFalse(dto.getVillaId())
+            .orElseThrow(() -> new ResourceNotFoundException("Villa not found with id: " + dto.getVillaId()));
 
         if (!booking.getVilla().getId().equals(villa.getId())) {
             throw new IllegalArgumentException("The villa does not match the booking.");
@@ -58,6 +58,7 @@ public class ReviewService {
         Review review = Review.builder()
                 .user(user)
                 .villa(villa)
+            .villaName(villa.getName())
                 .booking(booking)
                 .rating(dto.getRating())
                 .reviewText(dto.getReviewText())
@@ -172,8 +173,8 @@ public class ReviewService {
                 .id(review.getId())
                 .userId(review.getUser().getId())
                 .guestName(review.getUser().getFirstName() + " " + review.getUser().getLastName())
-                .villaId(review.getVilla().getId())
-                .villaName(review.getVilla().getName())
+                .villaId(review.getVilla() != null ? review.getVilla().getId() : null)
+                .villaName(review.getVilla() != null ? review.getVilla().getName() : review.getVillaName())
                 .bookingId(review.getBooking().getId())
                 .rating(review.getRating())
                 .reviewText(review.getReviewText())

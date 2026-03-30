@@ -2,6 +2,7 @@ package com.holidayVilla.holiday_villa_system.repository;
 
 import com.holidayVilla.holiday_villa_system.entity.Promotion;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,9 +14,15 @@ import java.util.Optional;
 @Repository
 public interface PromotionRepository extends JpaRepository<Promotion, Long> {
 
-    List<Promotion> findAllByOrderByCreatedAtDesc();
+        List<Promotion> findAllByVilla_IsDeletedFalseOrderByCreatedAtDesc();
+        List<Promotion> findAllByOrderByCreatedAtDesc();
 
-    List<Promotion> findByIsActiveTrueOrderByCreatedAtDesc();
+        List<Promotion> findByIsActiveTrueAndVilla_IsDeletedFalseOrderByCreatedAtDesc();
+        List<Promotion> findByIsActiveTrueOrderByCreatedAtDesc();
+
+        boolean existsByVilla_Id(Long villaId);
+        List<Promotion> findByVilla_IdOrderByCreatedAtDesc(Long villaId);
+        void deleteByVilla_Id(Long villaId);
 
     /**
      * Find the first active promotion applicable to a given villa and check-in date.
@@ -23,6 +30,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
      */
     @Query("SELECT p FROM Promotion p " +
            "WHERE p.villa.id = :villaId " +
+                 "AND p.villa.isDeleted = false " +
            "AND p.isActive = true " +
            "AND :checkIn >= p.startDate " +
            "AND :checkIn <= p.endDate " +

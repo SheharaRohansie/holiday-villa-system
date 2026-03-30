@@ -77,14 +77,14 @@ public class PromotionService {
     // ── ADMIN: Get all promotions ──────────────────────────────────────────────
 
     public List<PromotionResponse> getAllPromotions() {
-        return promotionRepository.findAllByOrderByCreatedAtDesc()
+        return promotionRepository.findAllByVilla_IsDeletedFalseOrderByCreatedAtDesc()
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     // ── PUBLIC: Get active promotions for homepage ─────────────────────────────
 
     public List<PromotionResponse> getActivePromotions() {
-        return promotionRepository.findByIsActiveTrueOrderByCreatedAtDesc()
+        return promotionRepository.findByIsActiveTrueAndVilla_IsDeletedFalseOrderByCreatedAtDesc()
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
@@ -165,8 +165,8 @@ public class PromotionService {
     }
 
     private Villa getVilla(Long id) {
-        return villaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Villa not found: " + id));
+        return villaRepository.findByIdAndIsDeletedFalse(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Villa not found: " + id));
     }
 
     private double round(double v) { return Math.round(v * 100.0) / 100.0; }

@@ -2,6 +2,7 @@ package com.holidayVilla.holiday_villa_system.repository;
 
 import com.holidayVilla.holiday_villa_system.entity.Review;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -22,6 +23,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     void deleteByUser_Id(Long userId);
 
     void deleteByVilla_Id(Long villaId);
+
+    @Modifying
+    @Query("DELETE FROM Review r WHERE r.booking.id IN :bookingIds")
+    int deleteByBookingIds(@Param("bookingIds") List<Long> bookingIds);
 
     /** Check if a booking already has a review */
     boolean existsByBooking_Id(Long bookingId);

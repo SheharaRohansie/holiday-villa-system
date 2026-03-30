@@ -81,6 +81,7 @@ public class BookingService {
         Booking booking = Booking.builder()
                 .user(user)
                 .villa(villa)
+            .villaName(villa.getName())
             .guestCount(dto.getGuestCount())
             .mealPlan(mealPlan)
             .pricePerNight(pricePerNight)
@@ -249,8 +250,8 @@ public class BookingService {
     }
 
     private Villa getVillaById(Long id) {
-        return villaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Villa not found with id: " + id));
+        return villaRepository.findByIdAndIsDeletedFalse(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Villa not found with id: " + id));
     }
 
     private Booking getBookingById(Long id) {
@@ -265,8 +266,8 @@ public class BookingService {
                 .userId(b.getUser().getId())
                 .guestName(b.getUser().getFirstName() + " " + b.getUser().getLastName())
                 .guestEmail(b.getUser().getEmail())
-                .villaId(b.getVilla().getId())
-                .villaName(b.getVilla().getName())
+                .villaId(b.getVilla() != null ? b.getVilla().getId() : null)
+                .villaName(b.getVilla() != null ? b.getVilla().getName() : b.getVillaName())
                 .guestCount(b.getGuestCount())
                 .mealPlan(b.getMealPlan() != null ? b.getMealPlan().name() : null)
                 .checkInDate(b.getCheckInDate())

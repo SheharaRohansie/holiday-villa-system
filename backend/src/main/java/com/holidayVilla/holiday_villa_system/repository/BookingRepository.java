@@ -4,6 +4,7 @@ import com.holidayVilla.holiday_villa_system.entity.Booking;
 import com.holidayVilla.holiday_villa_system.entity.BookingStatus;
 import com.holidayVilla.holiday_villa_system.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -46,4 +47,26 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByPaymentStatusAndStatusNot(PaymentStatus paymentStatus, BookingStatus status);
 
     boolean existsByVilla_Id(Long villaId);
+
+    @Query("SELECT DISTINCT b.villa.id FROM Booking b")
+    List<Long> findDistinctVillaIdsWithBookings();
+
+    boolean existsByVilla_IdAndStatusNotAndCheckOutDateGreaterThanEqual(Long villaId, BookingStatus status, LocalDate date);
+
+    @Query("SELECT DISTINCT b.villa.id FROM Booking b WHERE b.status <> :cancelled AND b.checkOutDate >= :today")
+    List<Long> findDistinctVillaIdsWithActiveOrUpcomingBookings(@Param("today") LocalDate today, @Param("cancelled") BookingStatus cancelled);
+
+    @Modifying
+    @Query("DELETE FROM Booking b WHERE b.villa.id = :villaId AND (b.status = :cancelled OR b.checkOutDate < :today)")
+    int deletePastOrCancelledByVillaId(@Param("villaId") Long villaId, @Param("today") LocalDate today, @Param("cancelled") BookingStatus cancelled);
+
+    @Query("SELECT b.id FROM Booking b WHERE (b.villa.id = :villaId) OR (b.appliedPromotion IS NOT NULL AND b.appliedPromotion.villa.id = :villaId) OR (b.villa IS NULL AND b.villaName = :villaName)")
+    List<Long> findBookingIdsForVillaPurge(@Param("villaId") Long villaId, @Param("villaName") String villaName);
+
+    @Modifying
+    @Query("DELETE FROM Booking b WHERE b.id IN :bookingIds")
+    int deleteByBookingIds(@Param("bookingIds") List<Long> bookingIds);
+
+    @Query("SELECT b FROM Booking b WHERE b.villa.id = :villaId AND (b.status = :cancelled OR b.checkOutDate < :today)")
+    List<Booking> findPastOrCancelledByVillaId(@Param("villaId") Long villaId, @Param("today") LocalDate today, @Param("cancelled") BookingStatus cancelled);
 }

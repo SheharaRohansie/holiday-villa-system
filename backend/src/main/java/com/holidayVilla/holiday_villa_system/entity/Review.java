@@ -26,8 +26,11 @@ public class Review {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "villa_id", nullable = false)
+    @JoinColumn(name = "villa_id")
     private Villa villa;
+
+    @Column(name = "villa_name", nullable = false)
+    private String villaName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false)

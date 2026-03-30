@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
-import { getAllVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi, uploadVillaImagesApi } from '../api/villaApi';
+import { getAllAdminVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi, uploadVillaImagesApi } from '../api/villaApi';
 import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
 import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deletePromotionApi } from '../api/promotionApi';
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest, MealPlan } from '../types';
@@ -75,6 +75,12 @@ const AdminDashboard: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [deleteType, setDeleteType] = useState('');
   const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [deleteModalTitle, setDeleteModalTitle] = useState('Confirm Deletion');
+  const [deleteModalMessage, setDeleteModalMessage] = useState(
+    'Are you sure you want to delete this item? This action cannot be undone.'
+  );
+  const [deleteModalShowConfirm, setDeleteModalShowConfirm] = useState(true);
+  const [deleteModalShowCancel, setDeleteModalShowCancel] = useState(true);
   const [toast, setToast] = useState('');
 
   // Create Staff Form
@@ -243,6 +249,10 @@ const AdminDashboard: React.FC = () => {
   const handleDeletePromotion = async (id: number) => {
     setSelectedId(id);
     setDeleteType('promotion');
+    setDeleteModalTitle('Delete Promotion');
+    setDeleteModalMessage('Are you sure you want to delete this promotion? This action cannot be undone.');
+    setDeleteModalShowConfirm(true);
+    setDeleteModalShowCancel(true);
     setShowModal(true);
   };
 
@@ -289,7 +299,7 @@ const AdminDashboard: React.FC = () => {
 
   const loadVillas = async () => {
     try {
-      const data = await getAllVillasApi();
+      const data = await getAllAdminVillasApi();
       setVillas(data);
     } catch { /* silent */ }
   };
@@ -326,6 +336,44 @@ const AdminDashboard: React.FC = () => {
     }
     if (missing.length > 0) {
       errs.pricing = `Pricing is incomplete. Missing: ${missing.slice(0, 6).join(', ')}${missing.length > 6 ? '…' : ''}`;
+    }
+
+    // Strict increasing validation (only when matrix is complete)
+    if (!errs.pricing) {
+      const mealPlanLabel = (m: MealPlan) => m.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      const get = (g: number, m: MealPlan) => map.get(key(g, m)) ?? 0;
+
+      // Increasing guests for same meal plan
+      for (const m of mealPlans) {
+        for (let i = 1; i < allowedGuests.length; i++) {
+          const prevG = allowedGuests[i - 1];
+          const nextG = allowedGuests[i];
+          const prev = get(prevG, m);
+          const next = get(nextG, m);
+          if (next <= prev) {
+            errs.pricing = `${mealPlanLabel(m)} | ${nextG} guests must be greater than ${mealPlanLabel(m)} | ${prevG} guests.`;
+            break;
+          }
+        }
+        if (errs.pricing) break;
+      }
+
+      // Increasing meal plan for same guest count
+      if (!errs.pricing) {
+        for (const g of allowedGuests) {
+          for (let i = 1; i < mealPlans.length; i++) {
+            const prevM = mealPlans[i - 1];
+            const nextM = mealPlans[i];
+            const prev = get(g, prevM);
+            const next = get(g, nextM);
+            if (next <= prev) {
+              errs.pricing = `${mealPlanLabel(nextM)} | ${g} guests must be greater than ${mealPlanLabel(prevM)} | ${g} guests.`;
+              break;
+            }
+          }
+          if (errs.pricing) break;
+        }
+      }
     }
 
     setVillaErrors(errs);
@@ -388,6 +436,10 @@ const AdminDashboard: React.FC = () => {
   const handleDeleteVilla = async (id: number) => {
     setSelectedId(id);
     setDeleteType('villa');
+    setDeleteModalTitle('Delete Villa');
+    setDeleteModalMessage('Deleting this villa will permanently remove ALL data related to this villa (bookings, payments, promotions, pricing, reviews, etc.). This action cannot be undone.');
+    setDeleteModalShowConfirm(true);
+    setDeleteModalShowCancel(true);
     setShowModal(true);
   };
 
@@ -418,6 +470,10 @@ const AdminDashboard: React.FC = () => {
   const handleDeleteUser = async (id: number) => {
     setSelectedId(id);
     setDeleteType('user');
+    setDeleteModalTitle('Delete User');
+    setDeleteModalMessage('Are you sure you want to delete this user? This action cannot be undone.');
+    setDeleteModalShowConfirm(true);
+    setDeleteModalShowCancel(true);
     setShowModal(true);
   };
 
@@ -439,6 +495,10 @@ const AdminDashboard: React.FC = () => {
       setShowModal(false);
       setSelectedId(null);
       setDeleteType('');
+      setDeleteModalTitle('Confirm Deletion');
+      setDeleteModalMessage('Are you sure you want to delete this item? This action cannot be undone.');
+      setDeleteModalShowConfirm(true);
+      setDeleteModalShowCancel(true);
       setToast('Deleted successfully');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
@@ -539,9 +599,21 @@ const AdminDashboard: React.FC = () => {
         <Toast message={toast} onClose={() => setToast('')} />
         <ConfirmDeleteModal
           isOpen={showModal}
-          onClose={() => { if (!deleteProcessing) setShowModal(false); }}
+          onClose={() => {
+            if (deleteProcessing) return;
+            setShowModal(false);
+            setDeleteModalTitle('Confirm Deletion');
+            setDeleteModalMessage('Are you sure you want to delete this item? This action cannot be undone.');
+            setDeleteModalShowConfirm(true);
+            setDeleteModalShowCancel(true);
+          }}
           onConfirm={handleConfirmDelete}
           isProcessing={deleteProcessing}
+          title={deleteModalTitle}
+          message={deleteModalMessage}
+          showConfirmButton={deleteModalShowConfirm}
+          showCancelButton={deleteModalShowCancel}
+          cancelText={deleteModalShowConfirm ? 'Cancel' : 'OK'}
         />
 
         {message && (
@@ -682,7 +754,7 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'add-villa' && (
           <div className="tab-content">
             <h2 className="tab-title">Add New Villa</h2>
-            <div className="form-card">
+            <div className="form-card form-card--wide">
               <form onSubmit={handleAddVilla} noValidate>
                 <VillaFormFields
                   form={villaForm}
@@ -710,7 +782,7 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'edit-villa' && (
           <div className="tab-content">
             <h2 className="tab-title">Edit Villa</h2>
-            <div className="form-card">
+            <div className="form-card form-card--wide">
               <form onSubmit={handleEditVillaSave} noValidate>
                 <VillaFormFields
                   form={villaForm}
@@ -1067,7 +1139,7 @@ const VillaFormFields: React.FC<{
                           setPrice(g, mp.value, next);
                         }}
                         placeholder="LKR"
-                        style={{ width: '100%', minWidth: 120 }}
+                        style={{ width: '100%', minWidth: 84 }}
                       />
                     </td>
                   ))}

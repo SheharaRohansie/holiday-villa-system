@@ -13,6 +13,8 @@ import '../styles/ConfirmDeleteModal.css';
  * - message?: string
  * - confirmText?: string
  * - cancelText?: string
+ * - showConfirmButton?: boolean
+ * - showCancelButton?: boolean
  * - ariaLabel?: string
  */
 const ConfirmDeleteModal = ({
@@ -24,6 +26,8 @@ const ConfirmDeleteModal = ({
   message = 'Are you sure you want to delete this item? This action cannot be undone.',
   confirmText = 'Delete',
   cancelText = 'Cancel',
+  showConfirmButton = true,
+  showCancelButton = true,
   ariaLabel = 'Confirm deletion',
 }) => {
   const [animateIn, setAnimateIn] = useState(false);
@@ -46,12 +50,16 @@ const ConfirmDeleteModal = ({
         <h3 className="cdm-title">{title}</h3>
         <p className="cdm-text">{message}</p>
         <div className="cdm-actions">
-          <button className="cdm-btn cdm-btn-secondary" onClick={onClose} disabled={isProcessing}>
-            {cancelText}
-          </button>
-          <button className="cdm-btn cdm-btn-danger" onClick={onConfirm} disabled={isProcessing} autoFocus>
-            {isProcessing ? 'Deleting…' : confirmText}
-          </button>
+          {showCancelButton && (
+            <button className="cdm-btn cdm-btn-secondary" onClick={onClose} disabled={isProcessing}>
+              {cancelText}
+            </button>
+          )}
+          {showConfirmButton && (
+            <button className="cdm-btn cdm-btn-danger" onClick={onConfirm} disabled={isProcessing} autoFocus>
+              {isProcessing ? 'Deleting…' : confirmText}
+            </button>
+          )}
         </div>
       </div>
     </div>

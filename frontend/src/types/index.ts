@@ -105,6 +105,9 @@ export interface Villa {
   averageRating: number;
   reviewCount: number;
 
+  // Admin table helper
+  hasBookings?: boolean;
+
   // Min-price label data for cards
   minPrice?: number | null;
   minPriceGuestCount?: number | null;

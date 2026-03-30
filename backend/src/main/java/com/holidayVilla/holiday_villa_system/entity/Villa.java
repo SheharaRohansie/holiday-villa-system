@@ -56,6 +56,10 @@ public class Villa {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isDeleted = false;
+
     // Transient helpers for list conversion
     @Transient
     public List<String> getAmenitiesList() {

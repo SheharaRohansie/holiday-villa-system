@@ -30,7 +30,21 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
   const minPrice = (villa.minPrice ?? villa.pricePerNight);
   const minGuests = (villa.minPriceGuestCount ?? (villa.type === 'DELUXE' ? 2 : 2));
   const minMealPlan = (villa.minPriceMealPlan ?? 'ROOM_ONLY');
-  const mealPlanLabel = String(minMealPlan).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  const mealPlanLabel = (() => {
+    switch (minMealPlan) {
+      case 'ROOM_ONLY':
+        return 'Room Only';
+      case 'BED_AND_BREAKFAST':
+        return 'Bed & Breakfast';
+      case 'HALF_BOARD':
+        return 'Half Board';
+      case 'FULL_BOARD':
+        return 'Full Board';
+      default:
+        return String(minMealPlan).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+  })();
+  const priceLabel = `LKR ${Number(minPrice).toLocaleString()}`;
 
   return (
     <div className="villa-card-live">
@@ -81,10 +95,11 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
           </div>
         )}
         <div className="villa-card-footer">
-          <span className="villa-card-price">
-            From LKR {Number(minPrice).toLocaleString()} <small>({minGuests} Guests – {mealPlanLabel})</small>
-          </span>
-          <Link to={`/villas/${villa.id}`} className="btn-view-details">View Details</Link>
+          <div className="villa-card-price-block">
+            <span className="villa-card-price-meta">{mealPlanLabel} | {minGuests} Guests</span>
+            <span className="villa-card-price">{priceLabel}</span>
+          </div>
+          <Link to={`/villas/${villa.id}`} className="btn-view-details">View</Link>
         </div>
       </div>
     </div>

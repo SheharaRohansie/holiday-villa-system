@@ -31,4 +31,7 @@ public class VillaResponse {
 
     // Helps UI render guest selector without a pricing table
     private List<Integer> allowedGuestCounts;
+
+    // Admin table helper
+    private Boolean hasBookings;
 }

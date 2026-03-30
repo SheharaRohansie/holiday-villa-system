@@ -19,8 +19,6 @@ const VillaTable: React.FC<VillaTableProps> = ({ villas, onEdit, onDelete }) => 
           <tr>
             <th>Image</th>
             <th>Villa Name</th>
-            <th>Price / Night</th>
-            <th>Max Guests</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -42,14 +40,30 @@ const VillaTable: React.FC<VillaTableProps> = ({ villas, onEdit, onDelete }) => 
                   <span>🏖️</span>
                 )}
               </td>
-              <td><strong>{v.name}</strong></td>
-              <td><strong>LKR {v.pricePerNight}</strong></td>
-              <td>{v.maxGuests ?? '—'}</td>
+              <td>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong>{v.name}</strong>
+                  {v.hasBookings && (
+                    <span
+                      className="badge-status status-confirmed"
+                      style={{ border: 'none', padding: '0.2rem 0.55rem', borderRadius: 999, fontWeight: 700 }}
+                      title="This villa has active/upcoming bookings and cannot be deleted"
+                    >
+                      Has Booking
+                    </span>
+                  )}
+                </div>
+              </td>
               <td>
                 <button className="btn-edit" onClick={() => onEdit(v)} style={{ marginRight: 8 }}>
                   ✏️ Edit
                 </button>
-                <button className="btn-delete" onClick={() => onDelete(v.id)}>
+                <button
+                  className="btn-delete"
+                  disabled={Boolean(v.hasBookings)}
+                  onClick={() => onDelete(v.id)}
+                  title={v.hasBookings ? 'Cannot delete: this villa has a booking today or in the future' : 'Delete villa'}
+                >
                   🗑️ Delete
                 </button>
               </td>

@@ -113,19 +113,24 @@
 }
 .villa-card-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   margin-top: 0.5rem;
+}
+.villa-card-price-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.villa-card-price-meta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #555;
 }
 .villa-card-price {
   font-size: 1.1rem;
   font-weight: 700;
   color: #023047;
-}
-.villa-card-price small {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: #888;
 }
 .btn-view-details {
   background: linear-gradient(135deg, #0077b6, #00b4d8);

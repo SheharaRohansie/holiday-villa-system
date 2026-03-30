@@ -60,6 +60,12 @@ public class VillaController {
 
     // ---- ADMIN endpoints ----
 
+    @GetMapping("/api/admin/villas")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<VillaResponse>> getAllAdminVillas() {
+        return ResponseEntity.ok(villaService.getAllAdminVillas());
+    }
+
     @PostMapping("/api/admin/villas")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> addVilla(@Valid @RequestBody VillaRequestDTO request) {

@@ -15,6 +15,9 @@ export const getVillaBookedDatesApi = (id: number): Promise<BookedDateRange[]> =
   axiosInstance.get(`/villas/${id}/booked-dates`).then(r => r.data);
 
 // Admin
+export const getAllAdminVillasApi = (): Promise<Villa[]> =>
+  axiosInstance.get('/admin/villas').then(r => r.data);
+
 export const addVillaApi = (data: VillaRequest): Promise<{ message: string }> =>
   axiosInstance.post('/admin/villas', data).then(r => r.data);
 
