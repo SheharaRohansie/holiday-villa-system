@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { sendForgotPasswordOtpApi } from '../api/authApi';
 import '../styles/AuthPages.css';
@@ -31,6 +31,12 @@ const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!error) return;
+    const id = window.setTimeout(() => setError(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [error]);
 
   const validate = (): boolean => {
     if (!email.trim()) {

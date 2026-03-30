@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
@@ -48,6 +48,8 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  const [guestNationalityFilter, setGuestNationalityFilter] = useState<string>('');
+
   // Villa state
   const [villas, setVillas] = useState<Villa[]>([]);
   const [villaForm, setVillaForm] = useState<VillaRequest>(emptyVillaForm());
@@ -77,8 +79,7 @@ const AdminDashboard: React.FC = () => {
 
   // Create Staff Form
   const [staffForm, setStaffForm] = useState<CreateStaffRequest>({
-    firstName: '', lastName: '', email: '', phoneNumber: '',
-    nationality: '', nic: '', passportNumber: '', password: '',
+    firstName: '', lastName: '', email: '', phoneNumber: '', password: '',
   });
   const [staffErrors, setStaffErrors] = useState<Partial<CreateStaffRequest>>({});
 
@@ -94,6 +95,18 @@ const AdminDashboard: React.FC = () => {
     loadBookings();
     loadPromotions();
   }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const id = window.setTimeout(() => setMessage(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [message]);
+
+  const filteredGuests = useMemo(() => {
+    const f = (guestNationalityFilter || '').trim();
+    if (!f) return guests;
+    return guests.filter(g => (g.nationality || '').trim() === f);
+  }, [guestNationalityFilter, guests]);
 
   useEffect(() => {
     const urls = villaImageFiles.map(f => URL.createObjectURL(f));
@@ -444,22 +457,15 @@ const AdminDashboard: React.FC = () => {
     else if (!/\S+@\S+\.\S+/.test(staffForm.email)) errs.email = 'Invalid email';
     if (!staffForm.phoneNumber) errs.phoneNumber = 'Required';
     else if (!/^\+?[0-9]{8,15}$/.test(staffForm.phoneNumber)) errs.phoneNumber = 'Invalid phone';
-    if (!staffForm.nationality) errs.nationality = 'Required';
-    if (staffForm.nationality === 'Sri Lanka' && !staffForm.nic) errs.nic = 'NIC required for Sri Lankans';
-    if (staffForm.nationality && staffForm.nationality !== 'Sri Lanka' && !staffForm.passportNumber) errs.passportNumber = 'Passport required';
     if (!staffForm.password) errs.password = 'Required';
     else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/.test(staffForm.password)) errs.password = 'Weak password';
     setStaffErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     try {
-      await createStaffApi({
-        ...staffForm,
-        nic: staffForm.nationality === 'Sri Lanka' ? staffForm.nic : undefined,
-        passportNumber: staffForm.nationality !== 'Sri Lanka' ? staffForm.passportNumber : undefined,
-      });
+      await createStaffApi(staffForm);
       setMessage('Staff account created successfully!');
-      setStaffForm({ firstName: '', lastName: '', email: '', phoneNumber: '', nationality: '', nic: '', passportNumber: '', password: '' });
+      setStaffForm({ firstName: '', lastName: '', email: '', phoneNumber: '', password: '' });
       loadAllUsers();
       setActiveTab('staff');
     } catch (err: unknown) {
@@ -485,6 +491,7 @@ const AdminDashboard: React.FC = () => {
       });
       setMessage('Profile updated! Please login again if you changed your email/password.');
       login({ ...user, email: updated.email });
+      setProfileForm(p => ({ ...p, currentPassword: '', newPassword: '' }));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setMessage(e.response?.data?.message || 'Update failed.');
@@ -540,7 +547,6 @@ const AdminDashboard: React.FC = () => {
         {message && (
           <div className={`alert ${message.includes('success') || message.includes('created') || message.includes('updated') || message.includes('deleted') ? 'alert-success' : 'alert-error'}`}>
             {message}
-            <button onClick={() => setMessage('')} className="alert-close">×</button>
           </div>
         )}
 
@@ -555,10 +561,6 @@ const AdminDashboard: React.FC = () => {
               <div className="stat-card"><span className="stat-icon">🏨</span><h3>{villas.length}</h3><p>Villas Available</p></div>
               <div className="stat-card"><span className="stat-icon">📅</span><h3>{bookings.length}</h3><p>Total Bookings</p></div>
               <div className="stat-card"><span className="stat-icon">✅</span><h3>{bookings.filter(b => b.status === 'CONFIRMED').length}</h3><p>Confirmed</p></div>
-            </div>
-            <div className="recent-section">
-              <h3>Recent Users</h3>
-              <UserTable users={allUsers.slice(-5).reverse()} onDelete={handleDeleteUser} />
             </div>
           </div>
         )}
@@ -638,7 +640,7 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'staff' && (
           <div className="tab-content">
             <h2 className="tab-title">Staff Members</h2>
-            {loading ? <p>Loading...</p> : <UserTable users={staff} onDelete={handleDeleteUser} />}
+            {loading ? <p>Loading...</p> : <UserTable users={staff} onDelete={handleDeleteUser} showNationality={false} />}
           </div>
         )}
 
@@ -646,7 +648,20 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'guests' && (
           <div className="tab-content">
             <h2 className="tab-title">Registered Guests</h2>
-            {loading ? <p>Loading...</p> : <UserTable users={guests} onDelete={handleDeleteUser} />}
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                <div className="form-group" style={{ maxWidth: 320 }}>
+                  <label>Filter by Nationality</label>
+                  <select value={guestNationalityFilter} onChange={e => setGuestNationalityFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <UserTable users={filteredGuests} showRole={false} showActions={false} />
+              </>
+            )}
           </div>
         )}
 
@@ -747,27 +762,6 @@ const AdminDashboard: React.FC = () => {
                   <input value={staffForm.phoneNumber} onChange={e => setStaffForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+94771234567" className={staffErrors.phoneNumber ? 'input-error' : ''} />
                   {staffErrors.phoneNumber && <span className="field-error">{staffErrors.phoneNumber}</span>}
                 </div>
-                <div className="form-group">
-                  <label>Nationality *</label>
-                  <select value={staffForm.nationality} onChange={e => setStaffForm(p => ({ ...p, nationality: e.target.value, nic: '', passportNumber: '' }))} className={staffErrors.nationality ? 'input-error' : ''}>
-                    <option value="">-- Select --</option>
-                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  {staffErrors.nationality && <span className="field-error">{staffErrors.nationality}</span>}
-                </div>
-                {staffForm.nationality === 'Sri Lanka' ? (
-                  <div className="form-group">
-                    <label>NIC *</label>
-                    <input value={staffForm.nic} onChange={e => setStaffForm(p => ({ ...p, nic: e.target.value }))} placeholder="NIC Number" className={staffErrors.nic ? 'input-error' : ''} />
-                    {staffErrors.nic && <span className="field-error">{staffErrors.nic}</span>}
-                  </div>
-                ) : staffForm.nationality ? (
-                  <div className="form-group">
-                    <label>Passport Number *</label>
-                    <input value={staffForm.passportNumber} onChange={e => setStaffForm(p => ({ ...p, passportNumber: e.target.value }))} placeholder="Passport Number" className={staffErrors.passportNumber ? 'input-error' : ''} />
-                    {staffErrors.passportNumber && <span className="field-error">{staffErrors.passportNumber}</span>}
-                  </div>
-                ) : null}
                 <div className="form-group">
                   <label>Password *</label>
                   <input type="password" value={staffForm.password} onChange={e => setStaffForm(p => ({ ...p, password: e.target.value }))} placeholder="Strong password" className={staffErrors.password ? 'input-error' : ''} />
@@ -1218,7 +1212,13 @@ const PromotionFormFields: React.FC<{
   </div>
 );
 
-const UserTable: React.FC<{ users: UserResponse[]; onDelete: (id: number) => void }> = ({ users, onDelete }) => (
+const UserTable: React.FC<{
+  users: UserResponse[];
+  onDelete?: (id: number) => void;
+  showRole?: boolean;
+  showActions?: boolean;
+  showNationality?: boolean;
+}> = ({ users, onDelete, showRole = true, showActions = true, showNationality = true }) => (
   <div className="table-wrapper">
     {users.length === 0 ? (
       <p className="empty-state">No records found.</p>
@@ -1226,7 +1226,9 @@ const UserTable: React.FC<{ users: UserResponse[]; onDelete: (id: number) => voi
       <table className="data-table">
         <thead>
           <tr>
-            <th>Name</th><th>Email</th><th>Phone</th><th>Nationality</th><th>Role</th><th>Actions</th>
+            <th>Name</th><th>Email</th><th>Phone</th>{showNationality && <th>Nationality</th>}
+            {showRole && <th>Role</th>}
+            {showActions && <th>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -1235,11 +1237,13 @@ const UserTable: React.FC<{ users: UserResponse[]; onDelete: (id: number) => voi
               <td>{u.firstName} {u.lastName}</td>
               <td>{u.email}</td>
               <td>{u.phoneNumber}</td>
-              <td>{u.nationality}</td>
-              <td><span className={`role-badge badge-${u.role.toLowerCase()}`}>{u.role}</span></td>
-              <td>
-                <button className="btn-delete" onClick={() => onDelete(u.id)}>Delete</button>
-              </td>
+              {showNationality && <td>{u.nationality}</td>}
+              {showRole && <td><span className={`role-badge badge-${u.role.toLowerCase()}`}>{u.role}</span></td>}
+              {showActions && (
+                <td>
+                  <button className="btn-delete" onClick={() => onDelete?.(u.id)}>Delete</button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

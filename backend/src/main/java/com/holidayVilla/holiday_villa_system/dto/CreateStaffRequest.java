@@ -20,7 +20,6 @@ public class CreateStaffRequest {
     @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Phone number must be 8-15 digits")
     private String phoneNumber;
 
-    @NotBlank(message = "Nationality is required")
     private String nationality;
 
     private String nic;

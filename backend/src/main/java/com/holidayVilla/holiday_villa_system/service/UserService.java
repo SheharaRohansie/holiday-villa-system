@@ -35,14 +35,16 @@ public class UserService {
             throw new EmailAlreadyExistsException("Email already in use: " + request.getEmail());
         }
 
-        validateIdentityDocument(request.getNationality(), request.getNic(), request.getPassportNumber());
+        String staffNationality = (request.getNationality() == null || request.getNationality().isBlank())
+                ? "Unknown"
+                : request.getNationality().trim();
 
         User user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .nationality(request.getNationality())
+            .nationality(staffNationality)
                 .nic(request.getNic())
                 .passportNumber(request.getPassportNumber())
                 .phoneNumber(request.getPhoneNumber())

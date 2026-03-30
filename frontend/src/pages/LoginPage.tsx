@@ -45,6 +45,18 @@ const LoginPage: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!flashMessage) return;
+    const id = window.setTimeout(() => setFlashMessage(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [flashMessage]);
+
+  useEffect(() => {
+    if (!serverError) return;
+    const id = window.setTimeout(() => setServerError(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [serverError]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.email) newErrors.email = 'Email is required';

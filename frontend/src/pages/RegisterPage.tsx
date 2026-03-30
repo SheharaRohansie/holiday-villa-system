@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { sendRegistrationOtpApi } from '../api/authApi';
 import { COUNTRIES } from '../data/countries';
+import countryTelephoneData from 'country-telephone-data';
+import { validatePhoneNumberLength } from 'libphonenumber-js/max';
+import type { CountryCode } from 'libphonenumber-js';
 import '../styles/AuthPages.css';
 
 type ApiErrorShape = {
@@ -42,6 +45,58 @@ interface FormState {
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
 const NIC_REGEX = /^(\d{12}|\d{9}[Vv])$/;
 
+const normalizeCountryKey = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+const getPlainCountryName = (name: string): string => {
+  const idx = name.indexOf(' (');
+  return idx >= 0 ? name.slice(0, idx) : name;
+};
+
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  // Keep small and targeted; normalization handles most.
+  'United States': 'United States',
+  'United Kingdom': 'United Kingdom',
+  'United Arab Emirates': 'United Arab Emirates',
+};
+
+type DialInfo = { dialCode: string; iso2: string };
+
+const buildDialInfoByCountryName = (): Record<string, DialInfo> => {
+  const map: Record<string, DialInfo> = {};
+
+  const allCountries = (countryTelephoneData as any)?.allCountries as
+    | Array<{ name: string; iso2: string; dialCode: string | number }>
+    | undefined;
+
+  if (!Array.isArray(allCountries)) return map;
+
+  for (const entry of allCountries) {
+    if (!entry || typeof entry !== 'object') continue;
+    const name = (entry as any).name;
+    const iso2 = (entry as any).iso2;
+    const dialCode = (entry as any).dialCode;
+
+    if (typeof name !== 'string') continue;
+    if (typeof iso2 !== 'string') continue;
+    if (typeof dialCode !== 'string' && typeof dialCode !== 'number') continue;
+
+    const dialInfo: DialInfo = { dialCode: String(dialCode), iso2: iso2.toUpperCase() };
+
+    // Index by the full name and by the plain name (before any native-name parentheses)
+    // so lookups using our COUNTRIES list (e.g. "Czech Republic") match reliably.
+    const fullKey = normalizeCountryKey(name);
+    if (fullKey) map[fullKey] = dialInfo;
+
+    const plainName = getPlainCountryName(name);
+    const plainKey = normalizeCountryKey(plainName);
+    if (plainKey) map[plainKey] = dialInfo;
+  }
+
+  return map;
+};
+
+const stripLeadingZeros = (digits: string) => digits.replace(/^0+/, '');
+
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
 
@@ -61,14 +116,53 @@ const RegisterPage: React.FC = () => {
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!serverError) return;
+    const id = window.setTimeout(() => setServerError(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [serverError]);
+
+  const dialInfoByCountryName = React.useMemo(() => buildDialInfoByCountryName(), []);
+
   const isSriLankan = formData.nationality === 'Sri Lanka';
+
+  const dialInfo = (() => {
+    if (!formData.nationality) return '';
+    const resolvedName = COUNTRY_NAME_ALIASES[formData.nationality] ?? formData.nationality;
+    const key = normalizeCountryKey(resolvedName);
+    return dialInfoByCountryName[key] ?? '';
+  })();
+
+  const phoneCountryCode = typeof dialInfo === 'string' ? '' : dialInfo.dialCode;
+  const phoneCountryIso2 = typeof dialInfo === 'string' ? '' : dialInfo.iso2;
+  const phonePrefixLabel = phoneCountryCode ? `+${phoneCountryCode}` : '';
+
+  const getPhoneLengthStatus = (nationalDigits: string) => {
+    if (!phoneCountryIso2) return undefined;
+    try {
+      return validatePhoneNumberLength(nationalDigits, phoneCountryIso2 as CountryCode);
+    } catch {
+      return undefined;
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const sanitizedValue = (() => {
       if (name === 'phoneNumber') {
-        // Digits only
-        return value.replace(/\D/g, '');
+        // Digits only (user enters local/national number only)
+        const digitsOnly = value.replace(/\D/g, '');
+        let nationalDigits = phoneCountryCode ? stripLeadingZeros(digitsOnly) : digitsOnly;
+
+        // Enforce max length for the selected country.
+        while (nationalDigits.length > 0 && getPhoneLengthStatus(nationalDigits) === 'TOO_LONG') {
+          nationalDigits = nationalDigits.slice(0, -1);
+        }
+
+        // Also enforce backend's E.164 max length (15 digits, excluding '+').
+        const maxTotalDigits = 15;
+        const maxLocalDigits = Math.max(0, maxTotalDigits - (phoneCountryCode ? phoneCountryCode.length : 0));
+        return nationalDigits.slice(0, maxLocalDigits);
       }
       if (name === 'nic') {
         // Allow only digits and V/v (Sri Lankan NIC), keep V at the end.
@@ -88,16 +182,43 @@ const RegisterPage: React.FC = () => {
       // If nationality changes, clear the now-irrelevant identity doc field.
       if (name === 'nationality') {
         const nextIsSriLankan = value === 'Sri Lanka';
+
+        // When nationality changes, re-normalize phone digits to avoid double prefixes / leading zeros.
+        const nextDialCode = (() => {
+          if (!value) return '';
+          const resolvedName = COUNTRY_NAME_ALIASES[value] ?? value;
+          const key = normalizeCountryKey(resolvedName);
+          return dialInfoByCountryName[key]?.dialCode ?? '';
+        })();
+        const nextPhoneDigits = (() => {
+          const digitsOnly = (prev.phoneNumber || '').replace(/\D/g, '');
+          const normalizedLocal = nextDialCode ? stripLeadingZeros(digitsOnly) : digitsOnly;
+          const maxTotalDigits = 15;
+          const maxLocalDigits = Math.max(0, maxTotalDigits - (nextDialCode ? nextDialCode.length : 0));
+          return normalizedLocal.slice(0, maxLocalDigits);
+        })();
+
         return {
           ...prev,
           nationality: value,
+          phoneNumber: nextPhoneDigits,
           nic: nextIsSriLankan ? prev.nic : '',
           passportNumber: nextIsSriLankan ? '' : prev.passportNumber,
         };
       }
       return { ...prev, [name]: sanitizedValue };
     });
-    setErrors(prev => ({ ...prev, [name]: '' }));
+
+    // Live phone validation feedback (too short / invalid length) once nationality is selected.
+    if (name === 'phoneNumber' && formData.nationality) {
+      const digitsOnly = sanitizedValue.replace(/\D/g, '');
+      const status = getPhoneLengthStatus(digitsOnly);
+      if (status === 'TOO_SHORT') setErrors(prev => ({ ...prev, phoneNumber: 'Number is too short' }));
+      else if (status === 'INVALID_LENGTH') setErrors(prev => ({ ...prev, phoneNumber: 'Invalid number length' }));
+      else setErrors(prev => ({ ...prev, phoneNumber: '' }));
+    } else {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
     if (name === 'nationality') {
       setErrors(prev => ({ ...prev, nic: '', passportNumber: '' }));
     }
@@ -113,8 +234,28 @@ const RegisterPage: React.FC = () => {
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
 
-    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
-    else if (!/^\d{8,15}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone must be 8-15 digits (numbers only)';
+    const localPhoneDigits = formData.phoneNumber.trim();
+    const normalizedLocalPhoneDigits = phoneCountryCode ? stripLeadingZeros(localPhoneDigits) : localPhoneDigits;
+    const fullPhoneDigits = phoneCountryCode ? `${phoneCountryCode}${normalizedLocalPhoneDigits}` : normalizedLocalPhoneDigits;
+
+    if (!normalizedLocalPhoneDigits) {
+      newErrors.phoneNumber = 'Phone number is required';
+    } else if (!/^\d+$/.test(normalizedLocalPhoneDigits)) {
+      newErrors.phoneNumber = 'Phone must contain digits only';
+    } else {
+      const status = getPhoneLengthStatus(normalizedLocalPhoneDigits);
+      if (status === 'TOO_SHORT') {
+        newErrors.phoneNumber = 'Number is too short';
+      } else if (status === 'TOO_LONG') {
+        newErrors.phoneNumber = 'Number is too long';
+      } else if (status === 'INVALID_LENGTH') {
+        newErrors.phoneNumber = 'Invalid number length';
+      } else if (!/^\d{8,15}$/.test(fullPhoneDigits)) {
+        newErrors.phoneNumber = phoneCountryCode
+          ? `Phone must be 8-15 digits total (including ${phonePrefixLabel})`
+          : 'Phone must be 8-15 digits (numbers only)';
+      }
+    }
 
     if (!formData.nationality) newErrors.nationality = 'Nationality is required';
 
@@ -147,11 +288,15 @@ const RegisterPage: React.FC = () => {
     setLoading(true);
     setServerError('');
     try {
+      const phoneNumberToSend = phoneCountryCode
+        ? `+${phoneCountryCode}${stripLeadingZeros(formData.phoneNumber)}`
+        : formData.phoneNumber;
+
       const payload = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        phoneNumber: formData.phoneNumber,
+        phoneNumber: phoneNumberToSend,
         nationality: formData.nationality,
         nic: isSriLankan ? formData.nic : undefined,
         passportNumber: !isSriLankan ? formData.passportNumber : undefined,
@@ -245,18 +390,6 @@ const RegisterPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="phoneNumber">Phone Number *</label>
-              <input
-                id="phoneNumber" name="phoneNumber" type="tel"
-                value={formData.phoneNumber} onChange={handleChange}
-                placeholder="0712345678" className={errors.phoneNumber ? 'input-error' : ''}
-                inputMode="numeric"
-                pattern="[0-9]*"
-              />
-              {errors.phoneNumber && <span className="field-error">{errors.phoneNumber}</span>}
-            </div>
-
-            <div className="form-group">
               <label htmlFor="nationality">Nationality *</label>
               <select
                 id="nationality" name="nationality"
@@ -264,9 +397,45 @@ const RegisterPage: React.FC = () => {
                 className={errors.nationality ? 'input-error' : ''}
               >
                 <option value="">-- Select your nationality --</option>
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {COUNTRIES.map(c => {
+                  const resolvedName = COUNTRY_NAME_ALIASES[c] ?? c;
+                  const code = dialInfoByCountryName[normalizeCountryKey(resolvedName)]?.dialCode;
+                  const label = code ? `${c} (+${code})` : c;
+                  return (
+                    <option key={c} value={c}>{label}</option>
+                  );
+                })}
               </select>
               {errors.nationality && <span className="field-error">{errors.nationality}</span>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="phoneNumber">Phone Number *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.75rem' }}>
+                <input
+                  id="phoneCode"
+                  name="phoneCode"
+                  type="text"
+                  value={formData.nationality ? (phonePrefixLabel || '+') : ''}
+                  disabled
+                  aria-label="Country code"
+                />
+                <input
+                  id="phoneNumber" name="phoneNumber" type="tel"
+                  value={formData.phoneNumber} onChange={handleChange}
+                  placeholder={formData.nationality ? 'Enter local number' : 'Select nationality first'}
+                  className={errors.phoneNumber ? 'input-error' : ''}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  disabled={!formData.nationality}
+                />
+              </div>
+              {formData.nationality && phonePrefixLabel && (
+                <div className="field-error" style={{ color: '#666' }}>
+                  Country code is set to {phonePrefixLabel}. Enter only the local number.
+                </div>
+              )}
+              {errors.phoneNumber && <span className="field-error">{errors.phoneNumber}</span>}
             </div>
 
             {/* Conditional: NIC for Sri Lanka, Passport for others */}

@@ -7,7 +7,7 @@ type ToastProps = {
   durationMs?: number;
 };
 
-const Toast: React.FC<ToastProps> = ({ message, onClose, durationMs = 2500 }) => {
+const Toast: React.FC<ToastProps> = ({ message, onClose, durationMs = 3000 }) => {
   useEffect(() => {
     if (!message) return;
     const id = window.setTimeout(onClose, durationMs);
@@ -19,9 +19,6 @@ const Toast: React.FC<ToastProps> = ({ message, onClose, durationMs = 2500 }) =>
   return (
     <div className="toast" role="status" aria-live="polite">
       <span>{message}</span>
-      <button className="toast-close" onClick={onClose} aria-label="Close">
-        ×
-      </button>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { resetPasswordApi, sendForgotPasswordOtpApi } from '../api/authApi';
 import '../styles/AuthPages.css';
@@ -42,6 +42,12 @@ const ResetPassword: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (!error) return;
+    const id = window.setTimeout(() => setError(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [error]);
 
   if (!email) return <Navigate to="/forgot-password" replace />;
 

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Navbar.css';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const isAuthNavRestricted = location.pathname === '/login' || location.pathname === '/register';
 
   const handleLogout = () => {
     logout();
@@ -35,8 +38,12 @@ const Navbar: React.FC = () => {
 
       <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
         <li><Link to="/" onClick={() => setMenuOpen(false)}>Home</Link></li>
-        <li><a href="#villas" onClick={() => setMenuOpen(false)}>Villas</a></li>
-        <li><a href="#offers" onClick={() => setMenuOpen(false)}>Offers</a></li>
+        {!isAuthNavRestricted && (
+          <>
+            <li><a href="#villas" onClick={() => setMenuOpen(false)}>Villas</a></li>
+            <li><a href="#offers" onClick={() => setMenuOpen(false)}>Offers</a></li>
+          </>
+        )}
 
         {isAuthenticated ? (
           <>

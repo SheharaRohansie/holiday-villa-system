@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { registerWithOtpApi, sendRegistrationOtpApi } from '../api/authApi';
 import type { RegisterRequest } from '../types';
@@ -42,6 +42,12 @@ const OTPVerification: React.FC = () => {
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (!serverError) return;
+    const id = window.setTimeout(() => setServerError(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [serverError]);
 
   if (!registrationDraft) return <Navigate to="/register" replace />;
 

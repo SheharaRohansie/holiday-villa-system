@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { deleteMyAccountApi, getUserByIdApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi } from '../api/villaApi';
 import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
@@ -42,6 +42,12 @@ const GuestDashboard: React.FC = () => {
     getAllVillasApi().then(setVillas).catch(() => {});
     loadMyBookings();
   }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const id = window.setTimeout(() => setMessage(''), 3000);
+    return () => window.clearTimeout(id);
+  }, [message]);
 
   useEffect(() => {
     if (!user) return;
@@ -188,7 +194,7 @@ const GuestDashboard: React.FC = () => {
 
         {message && (
           <div className={`alert ${message.includes('successfully') ? 'alert-success' : 'alert-error'}`}>
-            {message} <button onClick={() => setMessage('')} className="alert-close">×</button>
+            {message}
           </div>
         )}
 
@@ -197,7 +203,13 @@ const GuestDashboard: React.FC = () => {
             <h2 className="tab-title">Welcome, {user?.firstName}!</h2>
             <div className="welcome-banner">
               <p>You're logged in as a guest. Browse our villas and make your reservation.</p>
-              <Link to="/#villas" className="btn-primary-action inline">Explore Villas</Link>
+              <button
+                type="button"
+                className="btn-primary-action inline"
+                onClick={() => setActiveTab('villas')}
+              >
+                Explore Villas
+              </button>
             </div>
             <div className="stats-grid">
               <div className="stat-card"><span className="stat-icon">📅</span><h3>{bookings.length}</h3><p>My Reservations</p></div>

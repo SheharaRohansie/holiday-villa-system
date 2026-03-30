@@ -43,7 +43,7 @@ export interface CreateStaffRequest {
   lastName: string;
   email: string;
   phoneNumber: string;
-  nationality: string;
+  nationality?: string;
   nic?: string;
   passportNumber?: string;
   password: string;
