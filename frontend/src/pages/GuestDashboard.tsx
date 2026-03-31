@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { deleteMyAccountApi, getUserByIdApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi } from '../api/villaApi';
 import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
@@ -15,6 +15,7 @@ import '../styles/Booking.css';
 const GuestDashboard: React.FC = () => {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'overview' | 'villas' | 'reservations' | 'profile'>('overview');
   const [message, setMessage] = useState('');
   const [villas, setVillas] = useState<Villa[]>([]);
@@ -42,6 +43,14 @@ const GuestDashboard: React.FC = () => {
     getAllVillasApi().then(setVillas).catch(() => {});
     loadMyBookings();
   }, []);
+
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const tab = (qs.get('tab') || '').trim();
+    if (tab === 'overview' || tab === 'villas' || tab === 'reservations' || tab === 'profile') {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (!message) return;

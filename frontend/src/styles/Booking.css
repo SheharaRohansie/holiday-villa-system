@@ -168,6 +168,34 @@
   background: #fff;
 }
 
+.booking-field select,
+.booking-field input[type="text"],
+.booking-field input[type="number"] {
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.booking-field select:focus,
+.booking-field input[type="text"]:focus,
+.booking-field input[type="number"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+.booking-select-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
 /* ── Price Summary ── */
 .booking-price-summary {
   background: #f8fafc;
@@ -540,9 +568,67 @@
    ADMIN BOOKINGS TABLE EXTRAS
    =================================================== */
 
+.booking-filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.booking-filters input[type="text"],
+.booking-filters select {
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.booking-filters input[type="text"]:focus,
+.booking-filters select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+.booking-filter-error {
+  color: #c62828;
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.bookings-table-wrapper {
+  overflow-x: hidden;
+}
+
+.bookings-table {
+  table-layout: fixed;
+}
+
 .bookings-table th,
 .bookings-table td {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Keep status badges on a single line for readability */
+.bookings-table .badge-status,
+.bookings-table .badge-payment {
   white-space: nowrap;
+  word-break: normal;
+  font-size: 0.72rem;
+}
+
+/* Give status columns a bit more room in the fixed-layout table */
+.bookings-table th:nth-child(8),
+.bookings-table td:nth-child(8),
+.bookings-table th:nth-child(9),
+.bookings-table td:nth-child(9) {
+  width: 140px;
 }
 
 .guest-cell {

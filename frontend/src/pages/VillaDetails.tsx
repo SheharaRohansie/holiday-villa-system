@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getVillaBookedDatesApi, getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
+import { getVillaBookedDatesApi, getVillaByIdApi } from '../api/villaApi';
 import { getActivePromotionsApi } from '../api/promotionApi';
 import { getVillaReviewsApi } from '../api/reviewApi';
 import { useAuth } from '../context/AuthContext';
-import type { Villa, Promotion, Review, MealPlan, BookedDateRange } from '../types';
+import type { Villa, Promotion, Review, BookedDateRange } from '../types';
 import ReviewCard from '../components/ReviewCard';
 import StarRating from '../components/StarRating';
 import BookingCalendar from '../components/BookingCalendar';
@@ -24,21 +24,8 @@ const VillaDetails: React.FC = () => {
   const [avgRating, setAvgRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
 
-  const [guestCount, setGuestCount] = useState<number>(2);
-  const [mealPlan, setMealPlan] = useState<MealPlan>('ROOM_ONLY');
-  const [pricePerNight, setPricePerNight] = useState<number | null>(null);
-  const [priceLoading, setPriceLoading] = useState(false);
-  const [priceError, setPriceError] = useState<string>('');
-
   const [bookedRanges, setBookedRanges] = useState<BookedDateRange[]>([]);
   const [bookedLoading, setBookedLoading] = useState(false);
-  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
-  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
-
-  const toIsoLocal = (d: Date) => {
-    const x = new Date(d);
-    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-  };
 
   useEffect(() => {
     if (!id) return;
@@ -46,12 +33,6 @@ const VillaDetails: React.FC = () => {
     getVillaByIdApi(Number(id))
       .then(data => {
         setVilla(data);
-        // Initialize selectors from allowed guest counts
-        const allowed = (data.allowedGuestCounts && data.allowedGuestCounts.length > 0)
-          ? data.allowedGuestCounts
-          : (data.type === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6]);
-        setGuestCount(allowed[0] ?? 2);
-        setMealPlan('ROOM_ONLY');
         setLoading(false);
       })
       .catch(() => { setError('Villa not found.'); setLoading(false); });
@@ -77,19 +58,6 @@ const VillaDetails: React.FC = () => {
       })
       .catch(() => {});
   }, [id]);
-
-  useEffect(() => {
-    if (!villa) return;
-    setPriceError('');
-    setPriceLoading(true);
-    getVillaPriceApi(villa.id, guestCount, mealPlan)
-      .then(r => setPricePerNight(r.pricePerNight))
-      .catch(() => {
-        setPricePerNight(null);
-        setPriceError('Price not available for selected options.');
-      })
-      .finally(() => setPriceLoading(false));
-  }, [villa?.id, guestCount, mealPlan]);
 
   if (loading) return <div className="villa-details-loading">Loading villa details…</div>;
   if (error || !villa) return <div className="villa-details-error">{error || 'Villa not found.'}</div>;
@@ -146,7 +114,7 @@ const VillaDetails: React.FC = () => {
               <div className="villa-promo-desc">{promotion.description}</div>
               <div className="villa-promo-pricing">
                 <span className="villa-promo-original">
-                  LKR {(pricePerNight ?? villa.pricePerNight).toLocaleString()}/night
+                  LKR {villa.pricePerNight.toLocaleString()}/night
                 </span>
                 <span className="villa-promo-badge">
                   {promotion.discountType === 'PERCENTAGE'
@@ -164,7 +132,7 @@ const VillaDetails: React.FC = () => {
             <div className="villa-meta-item">
               <span className="meta-label">Price per night</span>
               <span className="meta-value price">
-                {priceLoading ? 'Loading…' : pricePerNight != null ? `LKR ${pricePerNight.toLocaleString()}` : '—'}
+                LKR {villa.pricePerNight.toLocaleString()}
               </span>
             </div>
             {villa.type && (
@@ -181,34 +149,6 @@ const VillaDetails: React.FC = () => {
             )}
           </div>
 
-          {/* ── Guest count & meal plan selectors ───────────────────── */}
-          <div className="villa-details-section">
-            <h3>Choose Your Stay</h3>
-            <div className="booking-select-row">
-              <div className="booking-field">
-                <label>Guests</label>
-                <select value={guestCount} onChange={e => setGuestCount(Number(e.target.value))}>
-                  {((villa.allowedGuestCounts && villa.allowedGuestCounts.length > 0)
-                    ? villa.allowedGuestCounts
-                    : (villa.type === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6])
-                  ).map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="booking-field">
-                <label>Meal Plan</label>
-                <select value={mealPlan} onChange={e => setMealPlan(e.target.value as MealPlan)}>
-                  <option value="ROOM_ONLY">Room Only</option>
-                  <option value="BED_AND_BREAKFAST">Bed and Breakfast</option>
-                  <option value="HALF_BOARD">Half Board</option>
-                  <option value="FULL_BOARD">Full Board</option>
-                </select>
-              </div>
-            </div>
-            {priceError && <div className="villa-details-error" style={{ marginTop: 8 }}>{priceError}</div>}
-          </div>
-
           <div className="villa-details-section">
             <h3>Availability Calendar</h3>
             {bookedLoading ? (
@@ -216,12 +156,10 @@ const VillaDetails: React.FC = () => {
             ) : (
               <BookingCalendar
                 bookedRanges={bookedRanges}
-                startDate={checkInDate}
-                endDate={checkOutDate}
-                onChange={(start, end) => {
-                  setCheckInDate(start);
-                  setCheckOutDate(end);
-                }}
+                startDate={null}
+                endDate={null}
+                onChange={() => { /* read-only on villa page */ }}
+                disabled
               />
             )}
           </div>
@@ -244,24 +182,16 @@ const VillaDetails: React.FC = () => {
 
           <button
             className="btn-book-now"
-            disabled={priceLoading || pricePerNight == null}
+            disabled={false}
             onClick={() => {
               if (!user || user.role !== 'GUEST') {
                 navigate('/login');
               } else {
-                const qs = new URLSearchParams({
-                  guests: String(guestCount),
-                  mealPlan,
-                });
-                if (checkInDate && checkOutDate) {
-                  qs.set('checkIn', toIsoLocal(checkInDate));
-                  qs.set('checkOut', toIsoLocal(checkOutDate));
-                }
-                navigate(`/book/${villa.id}?${qs.toString()}`);
+                navigate(`/book/${villa.id}`);
               }
             }}
           >
-            Book Now
+            Make a Reservation
           </button>
 
           {/* ── Guest Reviews ──────────────────────────────────────────── */}

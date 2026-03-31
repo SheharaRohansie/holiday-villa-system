@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsersApi, getAllStaffApi, getAllGuestsApi, createStaffApi, deleteUserApi, updateProfileApi } from '../api/userApi';
 import { getAllAdminVillasApi, addVillaApi, updateVillaApi, deleteVillaApi, getAdminVillaByIdApi, uploadVillaImagesApi } from '../api/villaApi';
-import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
+import { getAllBookingsApi } from '../api/bookingApi';
 import { getAllPromotionsApi, createPromotionApi, updatePromotionApi, deletePromotionApi } from '../api/promotionApi';
 import type { UserResponse, CreateStaffRequest, UpdateProfileRequest, Villa, VillaRequest, Booking, Promotion, PromotionRequest, MealPlan } from '../types';
 import { COUNTRIES } from '../data/countries';
@@ -63,6 +63,10 @@ const AdminDashboard: React.FC = () => {
 
   // Bookings state
   const [bookings, setBookings] = useState<Booking[]>([]);
+
+  // Bookings filters (admin)
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>('');
+  const [bookingFilterVillaId, setBookingFilterVillaId] = useState<string>('');
 
   // Promotions state
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -182,15 +186,53 @@ const AdminDashboard: React.FC = () => {
     } catch { /* silent */ }
   };
 
-  const handleCompletePayment = async (bookingId: number) => {
-    try {
-      await completePaymentApi(bookingId);
-      setMessage('Payment completed. Booking marked as COMPLETED.');
-      loadBookings();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setMessage(e.response?.data?.message || 'Failed to complete payment.');
+  const parsedBookingFilterDate = useMemo(() => {
+    const raw = (bookingFilterDate || '').trim();
+    if (!raw) return { iso: null as string | null, error: '' };
+
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return { iso: null as string | null, error: 'Use MM/DD/YYYY format.' };
+
+    const mm = Number(m[1]);
+    const dd = Number(m[2]);
+    const yyyy = Number(m[3]);
+    if (!Number.isFinite(mm) || !Number.isFinite(dd) || !Number.isFinite(yyyy)) {
+      return { iso: null as string | null, error: 'Invalid date.' };
     }
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yyyy < 1900) {
+      return { iso: null as string | null, error: 'Invalid date.' };
+    }
+
+    const d = new Date(yyyy, mm - 1, dd);
+    if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) {
+      return { iso: null as string | null, error: 'Invalid date.' };
+    }
+
+    const iso = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    return { iso, error: '' };
+  }, [bookingFilterDate]);
+
+  const filteredBookings = useMemo(() => {
+    let list = bookings;
+
+    if (bookingFilterVillaId) {
+      list = list.filter(b => String(b.villaId) === bookingFilterVillaId);
+    }
+
+    if (parsedBookingFilterDate.iso) {
+      const iso = parsedBookingFilterDate.iso;
+      // Show bookings that cover the given date: checkIn <= date < checkOut
+      list = list.filter(b => iso >= b.checkInDate && iso < b.checkOutDate);
+    }
+
+    return list;
+  }, [bookings, bookingFilterVillaId, parsedBookingFilterDate.iso]);
+
+  const formatAsMMDDYYYY = (raw: string): string => {
+    const digits = (raw || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   };
 
   const loadPromotions = async () => {
@@ -641,10 +683,40 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'bookings' && (
           <div className="tab-content">
             <h2 className="tab-title">Manage Bookings</h2>
-            {bookings.length === 0 ? (
+            <div className="booking-filters">
+              <div className="form-group" style={{ maxWidth: 260 }}>
+                <label>Filter by Date</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="MM/DD/YYYY"
+                  maxLength={10}
+                  value={bookingFilterDate}
+                  onChange={e => setBookingFilterDate(formatAsMMDDYYYY(e.target.value))}
+                />
+                {parsedBookingFilterDate.error && (
+                  <div className="booking-filter-error">{parsedBookingFilterDate.error}</div>
+                )}
+              </div>
+
+              <div className="form-group" style={{ maxWidth: 320 }}>
+                <label>Filter by Villa</label>
+                <select value={bookingFilterVillaId} onChange={e => setBookingFilterVillaId(e.target.value)}>
+                  <option value="">All Villas</option>
+                  {villas
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(v => (
+                      <option key={v.id} value={String(v.id)}>{v.name}</option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            {filteredBookings.length === 0 ? (
               <p className="empty-state">No bookings found.</p>
             ) : (
-              <div className="table-wrapper">
+              <div className="table-wrapper bookings-table-wrapper">
                 <table className="data-table bookings-table">
                   <thead>
                     <tr>
@@ -653,17 +725,14 @@ const AdminDashboard: React.FC = () => {
                       <th>Villa</th>
                       <th>Check-in</th>
                       <th>Check-out</th>
-                      <th>Nights</th>
                       <th>Total (LKR)</th>
                       <th>Paid (LKR)</th>
-                      <th>Remaining (LKR)</th>
                       <th>Booking Status</th>
                       <th>Payment Status</th>
-                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {bookings.map(b => (
+                    {filteredBookings.map(b => (
                       <tr key={b.id}>
                         <td>#{b.id}</td>
                         <td>
@@ -675,12 +744,8 @@ const AdminDashboard: React.FC = () => {
                         <td>{b.villaName}</td>
                         <td>{b.checkInDate}</td>
                         <td>{b.checkOutDate}</td>
-                        <td>{b.nights}</td>
                         <td>{b.totalPrice.toLocaleString()}</td>
                         <td className="paid-amount">{b.amountPaid.toLocaleString()}</td>
-                        <td className={b.remainingAmount > 0 ? 'remaining-amount' : 'paid-amount'}>
-                          {b.remainingAmount.toLocaleString()}
-                        </td>
                         <td>
                           <span className={`badge-status status-${b.status.toLowerCase()}`}>{b.status}</span>
                         </td>
@@ -688,16 +753,6 @@ const AdminDashboard: React.FC = () => {
                           <span className={`badge-payment payment-${b.paymentStatus.toLowerCase().replace('_', '-')}`}>
                             {b.paymentStatus.replace('_', ' ')}
                           </span>
-                        </td>
-                        <td>
-                          {b.remainingAmount > 0 && b.status !== 'CANCELLED' && (
-                            <button
-                              className="btn-complete-payment"
-                              onClick={() => handleCompletePayment(b.id)}
-                            >
-                              Complete Payment
-                            </button>
-                          )}
                         </td>
                       </tr>
                     ))}

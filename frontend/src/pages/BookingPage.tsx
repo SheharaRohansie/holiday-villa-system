@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getVillaBookedDatesApi, getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
 import { createBookingApi, processPaymentApi } from '../api/bookingApi';
@@ -25,6 +25,12 @@ const tomorrowLocal = () => {
 };
 
 const parseIsoDateLocal = (iso: string): Date => new Date(`${iso}T00:00:00`);
+
+const addDays = (d: Date, days: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+};
 
 const BookingPage: React.FC = () => {
   const { villaId } = useParams<{ villaId: string }>();
@@ -111,8 +117,17 @@ const BookingPage: React.FC = () => {
       .finally(() => setPriceLoading(false));
   }, [villa?.id, guestCount, mealPlan]);
 
+  const allowedGuestCounts = useMemo(() => {
+    if (!villa) return [2, 3, 4, 5, 6];
+    return (villa.allowedGuestCounts && villa.allowedGuestCounts.length > 0)
+      ? villa.allowedGuestCounts
+      : (villa.type === 'DELUXE' ? [2, 3] : [2, 3, 4, 5, 6]);
+  }, [villa]);
+
   const calcNights = (): number => {
-    if (!checkInDate || !checkOutDate) return 0;
+    if (!checkInDate) return 0;
+    // Allow "single date" selection: treat it as a 1-night stay.
+    if (!checkOutDate) return 1;
     const ci = parseIsoDateLocal(toIsoLocal(checkInDate));
     const co = parseIsoDateLocal(toIsoLocal(checkOutDate));
     const diff = (co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24);
@@ -137,7 +152,8 @@ const BookingPage: React.FC = () => {
     }
   }, [villa, checkIn, checkOut, nights, guestCount, mealPlan]);
 
-  useEffect(() => { checkPromotion(); }, [checkIn, checkOut, villa]);
+  useEffect(() => { checkPromotion(); }, [checkPromotion]);
+
 
   // ── Effective price ────────────────────────────────────────────────────
   const effectiveTotal = (promotion && promoChoice === 'apply')
@@ -151,15 +167,17 @@ const BookingPage: React.FC = () => {
     e.preventDefault();
     setSubmitError('');
 
-    if (!checkInDate || !checkOutDate) {
-      setSubmitError('Please select both check-in and check-out dates.');
+    if (!checkInDate) {
+      setSubmitError('Please select your date(s).');
       return;
     }
+
+    const effectiveCheckOutDate = checkOutDate ?? addDays(checkInDate, 1);
 
     // Always derive the API payload from the selected Date objects (local),
     // so querystring/default string state can’t drift and break booking.
     const checkInIso = toIsoLocal(checkInDate);
-    const checkOutIso = toIsoLocal(checkOutDate);
+    const checkOutIso = toIsoLocal(effectiveCheckOutDate);
     setCheckIn(checkInIso);
     setCheckOut(checkOutIso);
 
@@ -227,9 +245,9 @@ const BookingPage: React.FC = () => {
             <div className="booking-modal-actions">
               <button
                 className="btn-booking-primary"
-                onClick={() => navigate('/guest/dashboard')}
+                onClick={() => navigate('/guest/dashboard?tab=reservations')}
               >
-                View My Bookings
+                View My Reservations
               </button>
               <button
                 className="btn-booking-secondary"
@@ -299,14 +317,43 @@ const BookingPage: React.FC = () => {
                   onChange={(start, end) => {
                     setCheckInDate(start);
                     setCheckOutDate(end);
-                    if (start) setCheckIn(toIsoLocal(start));
-                    else setCheckIn('');
+
+                    if (start) {
+                      setCheckIn(toIsoLocal(start));
+                      // If user selects only one date, treat it as 1 night (auto check-out next day) for pricing/promo.
+                      if (!end) setCheckOut(toIsoLocal(addDays(start, 1)));
+                    } else {
+                      setCheckIn('');
+                    }
+
                     if (end) setCheckOut(toIsoLocal(end));
-                    else setCheckOut('');
+                    else if (!start) setCheckOut('');
+
                     setSubmitError('');
                   }}
                 />
               )}
+            </div>
+
+            {/* Guests + Meal Plan */}
+            <div className="booking-select-row" style={{ marginTop: '0.75rem' }}>
+              <div className="booking-field">
+                <label>Number of Passengers</label>
+                <select value={guestCount} onChange={e => setGuestCount(Number(e.target.value))}>
+                  {allowedGuestCounts.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="booking-field">
+                <label>Meal Plan</label>
+                <select value={mealPlan} onChange={e => setMealPlan(e.target.value as MealPlan)}>
+                  <option value="ROOM_ONLY">Room Only</option>
+                  <option value="BED_AND_BREAKFAST">Bed and Breakfast</option>
+                  <option value="HALF_BOARD">Half Board</option>
+                  <option value="FULL_BOARD">Full Board</option>
+                </select>
+              </div>
             </div>
 
             {/* Price Summary */}
@@ -447,11 +494,7 @@ const BookingPage: React.FC = () => {
               className="btn-booking-confirm"
               disabled={submitting || nights <= 0}
             >
-              {submitting
-                ? 'Processing…'
-                : paymentType === 'ADVANCE'
-                  ? `Pay 30% & Confirm Booking — ${formatLKR(advanceAmount)}`
-                  : `Pay Full Amount & Confirm Booking — ${formatLKR(effectiveTotal)}`}
+              {submitting ? 'Processing…' : 'Book Now'}
             </button>
           </form>
         </div>

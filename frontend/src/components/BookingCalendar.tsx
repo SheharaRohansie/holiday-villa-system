@@ -62,12 +62,18 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
   const bookedSet = useMemo(() => expandBookedDates(bookedRanges), [bookedRanges]);
   const [selectionError, setSelectionError] = useState('');
 
+  const today = useMemo(() => startOfDay(new Date()), []);
+
   useEffect(() => {
     // Clear error if caller clears selection
     if (!startDate && !endDate) setSelectionError('');
   }, [startDate, endDate]);
 
-  const isBooked = (d: Date) => bookedSet.has(dateKey(d));
+  const isBookedFuture = (d: Date) => {
+    const day = startOfDay(d);
+    if (day.getTime() < today.getTime()) return false;
+    return bookedSet.has(dateKey(day));
+  };
 
   return (
     <div className="booking-calendar">
@@ -104,8 +110,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
           onChange(null, null);
         }}
         minDate={startOfDay(new Date())}
-        filterDate={(d: Date) => !isBooked(d)}
-        dayClassName={(d: Date) => (isBooked(d) ? 'bc-day-booked' : '')}
+        filterDate={(d: Date) => !isBookedFuture(d)}
+        dayClassName={(d: Date) => (isBookedFuture(d) ? 'bc-day-booked' : '')}
         disabled={disabled}
       />
 
