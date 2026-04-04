@@ -7,9 +7,8 @@ import Toast from './Toast';
 
 interface ReviewCardProps {
   review: Review;
-  /** Admin mode: show hide/show toggle (no delete per business rules) */
+  /** Admin mode: render extra context like villa name (read-only) */
   adminMode?: boolean;
-  onToggleVisibility?: (id: number) => void;
   /** Called after a guest edits or deletes their review */
   onUpdated?: () => void;
 }
@@ -17,7 +16,6 @@ interface ReviewCardProps {
 const ReviewCard: React.FC<ReviewCardProps> = ({
   review,
   adminMode = false,
-  onToggleVisibility,
   onUpdated,
 }) => {
   const [editing, setEditing] = useState(false);
@@ -79,7 +77,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   };
 
   return (
-    <div className={`review-card ${!review.isVisible ? 'review-card--hidden' : ''}`}>
+    <div className="review-card">
       <Toast message={toast} onClose={() => setToast('')} />
       <ConfirmDeleteModal
         isOpen={showModal}
@@ -128,22 +126,6 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         </div>
       ) : (
         <p className="review-card-text">{review.reviewText}</p>
-      )}
-
-      {!review.isVisible && (
-        <div className="review-card-hidden-badge">Hidden</div>
-      )}
-
-      {/* Admin controls: hide/show only — admin cannot delete reviews */}
-      {adminMode && !editing && (
-        <div className="review-card-actions">
-          <button
-            className={`btn-review-toggle ${review.isVisible ? 'btn-hide' : 'btn-show'}`}
-            onClick={() => onToggleVisibility?.(review.id)}
-          >
-            {review.isVisible ? '🙈 Hide' : '👁️ Show'}
-          </button>
-        </div>
       )}
 
       {/* Guest controls: edit/delete within 7-day window */}

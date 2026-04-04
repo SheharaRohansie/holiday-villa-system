@@ -58,8 +58,10 @@ public class ReviewController {
     // ── PUBLIC: Get villa reviews ──────────────────────────────────────────────
 
     @GetMapping("/api/reviews/villa/{villaId}")
-    public ResponseEntity<Map<String, Object>> getVillaReviews(@PathVariable Long villaId) {
-        List<ReviewResponse> reviews = reviewService.getVillaReviews(villaId);
+    public ResponseEntity<Map<String, Object>> getVillaReviews(
+            @PathVariable Long villaId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<ReviewResponse> reviews = reviewService.getVillaReviews(villaId, userDetails != null ? userDetails.getUsername() : null);
         Double avg = reviewService.getVillaAverageRating(villaId);
         return ResponseEntity.ok(Map.of(
                 "reviews", reviews,
@@ -83,13 +85,5 @@ public class ReviewController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<ReviewResponse>> getAllReviews() {
         return ResponseEntity.ok(reviewService.getAllReviews());
-    }
-
-    // ── ADMIN: Toggle review visibility ───────────────────────────────────────
-
-    @PutMapping("/api/admin/reviews/{id}/visibility")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ReviewResponse> toggleVisibility(@PathVariable Long id) {
-        return ResponseEntity.ok(reviewService.toggleVisibility(id));
     }
 }

@@ -29,6 +29,3 @@ export const getVillaReviewsApi = (villaId: number): Promise<VillaReviewsRespons
 
 export const getAllReviewsApi = (): Promise<Review[]> =>
   axiosInstance.get('/admin/reviews').then(r => r.data);
-
-export const toggleReviewVisibilityApi = (reviewId: number): Promise<Review> =>
-  axiosInstance.put(`/admin/reviews/${reviewId}/visibility`).then(r => r.data);

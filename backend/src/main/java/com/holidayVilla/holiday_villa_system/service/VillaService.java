@@ -186,7 +186,7 @@ public class VillaService {
 
     public VillaResponse toResponse(Villa villa) {
         Double avg = reviewRepository.findAverageRatingByVillaId(villa.getId()).orElse(0.0);
-        long count = reviewRepository.countByVilla_IdAndIsVisibleTrue(villa.getId());
+        long count = reviewRepository.countByVilla_Id(villa.getId());
 
         Double minPrice = null;
         Integer minGuests = null;

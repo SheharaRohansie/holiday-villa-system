@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,7 +66,7 @@ public class ReviewService {
                 .isVisible(true)
                 .build();
 
-        return toResponse(reviewRepository.save(review));
+        return toResponse(reviewRepository.save(review), user.getId());
     }
 
     // ── Guest: Edit a review ───────────────────────────────────────────────────
@@ -89,7 +90,7 @@ public class ReviewService {
 
         review.setRating(dto.getRating());
         review.setReviewText(dto.getReviewText());
-        return toResponse(reviewRepository.save(review));
+        return toResponse(reviewRepository.save(review), user.getId());
     }
 
     // ── Guest: Delete a review ─────────────────────────────────────────────────
@@ -114,13 +115,23 @@ public class ReviewService {
         reviewRepository.delete(review);
     }
 
-    // ── Get visible villa reviews ──────────────────────────────────────────────
+    // ── Get villa reviews ─────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> getVillaReviews(Long villaId) {
-        return reviewRepository.findByVilla_IdAndIsVisibleTrue(villaId)
+        return getVillaReviews(villaId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getVillaReviews(Long villaId, String viewerEmailOrNull) {
+        Long viewerUserId = Optional.ofNullable(viewerEmailOrNull)
+                .flatMap(userRepository::findByEmail)
+                .map(User::getId)
+                .orElse(null);
+
+        return reviewRepository.findByVilla_Id(villaId)
                 .stream()
-                .map(this::toResponse)
+                .map(r -> toResponse(r, viewerUserId))
                 .collect(Collectors.toList());
     }
 
@@ -132,7 +143,7 @@ public class ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return reviewRepository.findByUser_Id(user.getId())
                 .stream()
-                .map(this::toResponse)
+            .map(r -> toResponse(r, user.getId()))
                 .collect(Collectors.toList());
     }
 
@@ -142,18 +153,8 @@ public class ReviewService {
     public List<ReviewResponse> getAllReviews() {
         return reviewRepository.findAll()
                 .stream()
-                .map(this::toResponse)
+                .map(r -> toResponse(r, null))
                 .collect(Collectors.toList());
-    }
-
-    // ── Admin: Toggle review visibility ───────────────────────────────────────
-
-    @Transactional
-    public ReviewResponse toggleVisibility(Long reviewId) {
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found with id: " + reviewId));
-        review.setIsVisible(!review.getIsVisible());
-        return toResponse(reviewRepository.save(review));
     }
 
     // ── Average rating helper ──────────────────────────────────────────────────
@@ -168,7 +169,12 @@ public class ReviewService {
         return createdAt.isAfter(LocalDateTime.now().minusDays(EDIT_WINDOW_DAYS));
     }
 
-    private ReviewResponse toResponse(Review review) {
+    private ReviewResponse toResponse(Review review, Long viewerUserId) {
+        boolean canEdit = viewerUserId != null
+                && review.getUser() != null
+                && viewerUserId.equals(review.getUser().getId())
+                && isWithinEditWindow(review.getCreatedAt());
+
         return ReviewResponse.builder()
                 .id(review.getId())
                 .userId(review.getUser().getId())
@@ -181,7 +187,11 @@ public class ReviewService {
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .isVisible(review.getIsVisible())
-                .canEdit(isWithinEditWindow(review.getCreatedAt()))
+                .canEdit(canEdit)
                 .build();
+    }
+
+    private ReviewResponse toResponse(Review review) {
+        return toResponse(review, null);
     }
 }
