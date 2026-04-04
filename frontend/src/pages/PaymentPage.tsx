@@ -1,17 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getBookingByIdApi } from '../api/bookingApi';
 import { processPaymentApi, downloadInvoiceApi } from '../api/paymentApi';
 import { useAuth } from '../context/AuthContext';
 import type { Booking, PaymentMethod, PaymentType, PaymentRecord } from '../types';
 import '../styles/Payment.css';
 
-const fmt = (v: number) =>
-  `LKR ${v.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const asNumber = (v: unknown): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : 0;
+
+const fmt = (v: number | null | undefined) =>
+  `LKR ${asNumber(v).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const PaymentPage: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -24,7 +28,7 @@ const PaymentPage: React.FC = () => {
   const [submitError, setSubmitError] = useState('');
 
   // CARD fields
-  const [cardNumber, setCardNumber] = useState('');
+  const [cardNumberDigits, setCardNumberDigits] = useState('');
   const [cardType, setCardType] = useState<'VISA' | 'MASTERCARD' | ''>('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
@@ -36,13 +40,26 @@ const PaymentPage: React.FC = () => {
 
   const [successRecord, setSuccessRecord] = useState<PaymentRecord | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [redirectSeconds, setRedirectSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     if (!bookingId) { navigate('/'); return; }
     getBookingByIdApi(Number(bookingId))
-      .then(b => { setBooking(b); setLoading(false); })
-      .catch(() => { setError('Booking not found.'); setLoading(false); });
+      .then(b => {
+        const maybe = b as unknown as { id?: unknown };
+        if (!maybe || typeof maybe !== 'object' || typeof maybe.id !== 'number') {
+          setError('Failed to load booking details.');
+          setLoading(false);
+          return;
+        }
+        setBooking(b);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Booking not found.');
+        setLoading(false);
+      });
   }, [bookingId]);
 
   // Reset method-specific fields when payment method changes
@@ -50,7 +67,7 @@ const PaymentPage: React.FC = () => {
     setSubmitError('');
     setFieldErrors({});
     if (paymentMethod !== 'CARD') {
-      setCardNumber('');
+      setCardNumberDigits('');
       setCardType('');
       setExpiryDate('');
       setCvv('');
@@ -60,6 +77,13 @@ const PaymentPage: React.FC = () => {
     }
   }, [paymentMethod]);
 
+  const queryPaymentType = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const t = params.get('type');
+    if (t === 'ADVANCE' || t === 'FULL' || t === 'REMAINING') return t;
+    return null;
+  }, [location.search]);
+
   // Determine which payment options are available
   const availableTypes = (): PaymentType[] => {
     if (!booking) return [];
@@ -68,12 +92,51 @@ const PaymentPage: React.FC = () => {
     return [];
   };
 
+  const availableMethods = (): PaymentMethod[] => {
+    if (!booking) return [];
+    // Reservation-stage payment: Card / Bank Transfer only
+    if (booking.paymentStatus === 'UNPAID') return ['CARD', 'BANK_TRANSFER'];
+
+    // Checkout remaining: allow cash (admin confirmation)
+    if (booking.paymentStatus === 'PARTIALLY_PAID') {
+      if (paymentType === 'REMAINING') return ['CARD', 'BANK_TRANSFER', 'CASH'];
+      return ['CARD', 'BANK_TRANSFER'];
+    }
+
+    return [];
+  };
+
   const payableAmount = (): number => {
     if (!booking) return 0;
-    if (paymentType === 'ADVANCE') return Math.round(booking.totalPrice * 0.30 * 100) / 100;
-    if (paymentType === 'FULL')    return booking.totalPrice;
-    if (paymentType === 'REMAINING') return booking.remainingAmount;
+    const total = asNumber(booking.totalPrice);
+    const remaining = asNumber(booking.remainingAmount);
+    if (paymentType === 'ADVANCE') return Math.round(total * 0.30 * 100) / 100;
+    if (paymentType === 'FULL')    return total;
+    if (paymentType === 'REMAINING') return remaining;
     return 0;
+  };
+
+  const detectCardType = (digits: string): 'VISA' | 'MASTERCARD' | '' => {
+    if (!digits) return '';
+    if (digits.startsWith('4')) return 'VISA';
+
+    const firstTwo = Number(digits.slice(0, 2));
+    if (firstTwo >= 51 && firstTwo <= 55) return 'MASTERCARD';
+
+    const firstFour = Number(digits.slice(0, 4));
+    if (firstFour >= 2221 && firstFour <= 2720) return 'MASTERCARD';
+
+    return '';
+  };
+
+  const formatCardNumber = (digits: string) => {
+    return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+  };
+
+  const formatExpiry = (input: string) => {
+    const digits = input.replace(/\D/g, '').slice(0, 4);
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   };
 
   const handlePay = async () => {
@@ -85,7 +148,7 @@ const PaymentPage: React.FC = () => {
         bookingId: booking.id,
         paymentType,
         paymentMethod,
-        cardNumber: paymentMethod === 'CARD' ? cardNumber : undefined,
+        cardNumber: paymentMethod === 'CARD' ? cardNumberDigits : undefined,
         cardType: paymentMethod === 'CARD' ? (cardType || undefined) : undefined,
         expiryDate: paymentMethod === 'CARD' ? expiryDate : undefined,
         cvv: paymentMethod === 'CARD' ? cvv : undefined,
@@ -107,7 +170,7 @@ const PaymentPage: React.FC = () => {
     const errors: Record<string, string> = {};
 
     const digitsOnly = (s: string) => s.replace(/\D/g, '');
-    const cn = digitsOnly(cardNumber);
+    const cn = digitsOnly(cardNumberDigits);
     if (!cn) errors.cardNumber = 'Card number is required.';
     else if (cn.length !== 16) errors.cardNumber = 'Card number must be exactly 16 digits.';
 
@@ -202,11 +265,58 @@ const PaymentPage: React.FC = () => {
 
   const options = availableTypes();
 
+  // Initialize/repair payment type and method once we know booking
+  useEffect(() => {
+    if (!booking) return;
+    const types = availableTypes();
+    const preferredType = queryPaymentType && types.includes(queryPaymentType) ? queryPaymentType : (types[0] ?? null);
+    if (preferredType && paymentType !== preferredType) setPaymentType(preferredType);
+
+    const methods = availableMethods();
+    if (methods.length > 0 && !methods.includes(paymentMethod)) {
+      setPaymentMethod(methods[0]);
+    }
+  }, [booking, queryPaymentType, paymentType, paymentMethod]);
+
+  // If paymentType changes, ensure paymentMethod remains valid
+  useEffect(() => {
+    if (!booking) return;
+    const methods = availableMethods();
+    if (methods.length > 0 && !methods.includes(paymentMethod)) {
+      setPaymentMethod(methods[0]);
+    }
+  }, [booking, paymentType, paymentMethod]);
+
+  // After a successful payment, send user back to My Reservations
+  // NOTE: must be declared before any conditional returns (Rules of Hooks)
+  useEffect(() => {
+    if (!successRecord) return;
+    if (successRecord.paymentStatus !== 'SUCCESS') return;
+
+    setRedirectSeconds(3);
+    const tick = window.setInterval(() => {
+      setRedirectSeconds(prev => (prev === null ? null : Math.max(0, prev - 1)));
+    }, 1000);
+
+    const timer = window.setTimeout(() => {
+      navigate('/guest/dashboard?tab=reservations', { replace: true });
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(tick);
+    };
+  }, [successRecord, navigate]);
+
   if (loading) return <div className="payment-page"><div className="payment-container"><p>Loading booking...</p></div></div>;
   if (error)   return <div className="payment-page"><div className="payment-container"><p style={{ color: 'red' }}>{error}</p></div></div>;
   if (!booking) return null;
 
   const fullyPaid = booking.paymentStatus === 'FULLY_PAID';
+  const methods = availableMethods();
+  const cardNumberDisplay = formatCardNumber(cardNumberDigits);
+  const showInvoice = successRecord?.paymentStatus === 'SUCCESS';
+  const pendingCash = successRecord?.paymentStatus === 'PENDING' && successRecord.paymentMethod === 'CASH';
 
   return (
     <div className="payment-page">
@@ -224,14 +334,38 @@ const PaymentPage: React.FC = () => {
         {successRecord && (
           <div className="payment-success-banner">
             <div className="success-icon">✅</div>
-            <h2>Payment Successful!</h2>
-            <p>Amount paid: <strong>{fmt(successRecord.amount)}</strong></p>
+            <h2>
+              {successRecord.paymentStatus === 'SUCCESS'
+                ? 'Payment Successful!'
+                : successRecord.paymentStatus === 'PENDING'
+                ? 'Payment Pending'
+                : 'Payment Failed'}
+            </h2>
+            <p>
+              Amount: <strong>{fmt(successRecord.amount)}</strong>
+              {pendingCash ? ' (awaiting admin confirmation)' : ''}
+            </p>
             <div className="tx-ref">{successRecord.transactionReference}</div>
             <p>Booking Status: <strong>{successRecord.bookingStatus}</strong></p>
             <p>Remaining Balance: <strong>{fmt(successRecord.remainingAmount)}</strong></p>
-            <button className="btn-download-invoice" onClick={handleDownloadInvoice} disabled={downloading}>
-              {downloading ? 'Downloading…' : '📄 Download Invoice'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {showInvoice && (
+                <button className="btn-download-invoice" onClick={handleDownloadInvoice} disabled={downloading}>
+                  {downloading ? 'Downloading…' : '📄 Download Invoice'}
+                </button>
+              )}
+              <button
+                className="btn-download-invoice"
+                onClick={() => navigate('/guest/dashboard?tab=reservations', { replace: true })}
+              >
+                Go to My Reservations
+              </button>
+            </div>
+            {redirectSeconds !== null && (
+              <p style={{ marginTop: '0.6rem', color: '#2e7d32', fontWeight: 600 }}>
+                Redirecting to My Reservations in {redirectSeconds}s…
+              </p>
+            )}
           </div>
         )}
 
@@ -248,7 +382,7 @@ const PaymentPage: React.FC = () => {
             <div className="summary-row"><span className="label">Total</span><span className="value highlight">{fmt(booking.totalPrice)}</span></div>
             <div className="summary-row"><span className="label">Paid</span><span className="value success-color">{fmt(booking.amountPaid)}</span></div>
             <div className="summary-row"><span className="label">Remaining</span><span className="value warning-color">{fmt(booking.remainingAmount)}</span></div>
-            <div className="summary-row"><span className="label">Status</span><span className="value">{booking.paymentStatus.replace('_', ' ')}</span></div>
+            <div className="summary-row"><span className="label">Status</span><span className="value">{booking.paymentStatus ? booking.paymentStatus.replace('_', ' ') : '—'}</span></div>
           </div>
 
           {/* Payment Form */}
@@ -286,7 +420,7 @@ const PaymentPage: React.FC = () => {
                 <div className="payment-option-group">
                   <label>Payment Method</label>
                   <div className="payment-option-buttons">
-                    {(['CARD', 'CASH', 'BANK_TRANSFER'] as PaymentMethod[]).map(m => (
+                    {methods.map(m => (
                       <button
                         key={m}
                         className={`opt-btn ${paymentMethod === m ? 'active' : ''}`}
@@ -316,12 +450,14 @@ const PaymentPage: React.FC = () => {
                       <input
                         type="text"
                         inputMode="numeric"
-                        placeholder="16-digit card number"
-                        value={cardNumber}
+                        placeholder="1234 5678 9012 3456"
+                        value={cardNumberDisplay}
                         onChange={e => {
-                          // Keep digits only, max 16
+                          // Keep digits only, max 16, and auto-detect type
                           const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
-                          setCardNumber(digits);
+                          setCardNumberDigits(digits);
+                          const detected = detectCardType(digits);
+                          setCardType(detected);
                           setFieldErrors(prev => ({ ...prev, cardNumber: '' }));
                         }}
                         onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
@@ -333,10 +469,8 @@ const PaymentPage: React.FC = () => {
                       <label>Card Type</label>
                       <select
                         value={cardType}
-                        onChange={e => {
-                          setCardType(e.target.value as any);
-                          setFieldErrors(prev => ({ ...prev, cardType: '' }));
-                        }}
+                        disabled
+                        onChange={() => { /* auto-detected */ }}
                         onBlur={() => setFieldErrors(prev => ({ ...prev, ...validateCard() }))}
                       >
                         <option value="">Select card type</option>
@@ -354,7 +488,7 @@ const PaymentPage: React.FC = () => {
                         placeholder="MM/YY"
                         value={expiryDate}
                         onChange={e => {
-                          const v = e.target.value.replace(/[^0-9/]/g, '').slice(0, 5);
+                          const v = formatExpiry(e.target.value);
                           setExpiryDate(v);
                           setFieldErrors(prev => ({ ...prev, expiryDate: '' }));
                         }}

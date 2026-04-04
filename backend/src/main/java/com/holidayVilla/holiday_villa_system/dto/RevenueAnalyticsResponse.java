@@ -14,6 +14,9 @@ public class RevenueAnalyticsResponse {
     private Double totalRemainingPayments;
     private Double totalFullPayments;
 
+    // Outstanding balance across non-cancelled, not-fully-paid bookings
+    private Double totalOutstandingBalance;
+
     private Long totalBookings;
     private Long totalCompletedBookings;
     private Long totalPendingPayments;   // PARTIALLY_PAID bookings count

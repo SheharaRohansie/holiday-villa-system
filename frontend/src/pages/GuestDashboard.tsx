@@ -309,7 +309,10 @@ const GuestDashboard: React.FC = () => {
                           <button
                             className="btn-primary-action inline"
                             style={{ marginRight: '0.5rem' }}
-                            onClick={() => navigate(`/payment/${b.id}`)}
+                            onClick={() => {
+                              const t = b.paymentStatus === 'PARTIALLY_PAID' ? 'REMAINING' : undefined;
+                              navigate(t ? `/payment/${b.id}?type=${t}` : `/payment/${b.id}`);
+                            }}
                           >
                             💳 Pay Now
                           </button>

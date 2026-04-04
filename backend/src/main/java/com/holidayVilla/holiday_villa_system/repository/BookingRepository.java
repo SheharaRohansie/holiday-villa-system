@@ -46,6 +46,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     long countByPaymentStatusAndStatusNot(PaymentStatus paymentStatus, BookingStatus status);
 
+        @Query("SELECT COALESCE(SUM(b.remainingAmount), 0) FROM Booking b " +
+            "WHERE b.status <> com.holidayVilla.holiday_villa_system.entity.BookingStatus.CANCELLED " +
+            "AND b.paymentStatus <> com.holidayVilla.holiday_villa_system.entity.PaymentStatus.FULLY_PAID")
+        Double getTotalOutstandingBalance();
+
     boolean existsByVilla_Id(Long villaId);
 
     @Query("SELECT DISTINCT b.villa.id FROM Booking b")

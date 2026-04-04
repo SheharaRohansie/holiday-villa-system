@@ -192,7 +192,7 @@ export interface Booking {
 // ---- Payment Types ----
 export type PaymentType = 'ADVANCE' | 'FULL' | 'REMAINING';
 export type PaymentMethod = 'CARD' | 'CASH' | 'BANK_TRANSFER';
-export type PaymentTransactionStatus = 'SUCCESS' | 'FAILED';
+export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
 export interface PaymentProcessRequest {
   bookingId: number;
@@ -318,6 +318,7 @@ export interface RevenueAnalytics {
   totalAdvancePayments: number;
   totalRemainingPayments: number;
   totalFullPayments: number;
+  totalOutstandingBalance: number;
   totalBookings: number;
   totalCompletedBookings: number;
   totalPendingPayments: number;

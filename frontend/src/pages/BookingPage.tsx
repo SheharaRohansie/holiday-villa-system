@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getVillaBookedDatesApi, getVillaByIdApi, getVillaPriceApi } from '../api/villaApi';
-import { createBookingApi, processPaymentApi } from '../api/bookingApi';
+import { createBookingApi } from '../api/bookingApi';
 import { getApplicablePromotionApi } from '../api/promotionApi';
 import { useAuth } from '../context/AuthContext';
 import type { Villa, ApplicablePromotion, MealPlan, BookedDateRange } from '../types';
@@ -63,8 +63,6 @@ const BookingPage: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -203,25 +201,8 @@ const BookingPage: React.FC = () => {
         promotionAccepted: promoChoice === 'apply',
       });
 
-      // Step 2: Simulate payment
-      const paid = await processPaymentApi(booking.id, { paymentType });
-
-      const amountLabel = paymentType === 'ADVANCE'
-        ? `${formatLKR(paid.amountPaid)} (30% advance)`
-        : formatLKR(paid.amountPaid);
-
-      const discountNote = (booking.promotionAccepted && booking.discountAmount && booking.discountAmount > 0)
-        ? `\n\n🎉 Promotion applied — you saved ${formatLKR(booking.discountAmount)}!`
-        : '';
-
-      setSuccessMessage(
-        `Payment of ${amountLabel} was successful!\n\nYour booking for ${villa.name} has been confirmed.` +
-        (paymentType === 'ADVANCE'
-          ? `\n\nRemaining balance of ${formatLKR(paid.remainingAmount)} must be paid at check-out.`
-          : '') +
-        discountNote
-      );
-      setShowSuccess(true);
+      // Step 2: Payment is required to complete reservation
+      navigate(`/payment/${booking.id}?type=${paymentType}`, { replace: true });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setSubmitError(e.response?.data?.message || 'Booking failed. Please try again.');
@@ -235,31 +216,6 @@ const BookingPage: React.FC = () => {
 
   return (
     <div className="booking-page">
-      {/* ── Success Modal ── */}
-      {showSuccess && (
-        <div className="booking-modal-overlay">
-          <div className="booking-modal">
-            <div className="booking-modal-icon">✅</div>
-            <h2>Payment Successful!</h2>
-            <p className="booking-modal-body">{successMessage}</p>
-            <div className="booking-modal-actions">
-              <button
-                className="btn-booking-primary"
-                onClick={() => navigate('/guest/dashboard?tab=reservations')}
-              >
-                View My Reservations
-              </button>
-              <button
-                className="btn-booking-secondary"
-                onClick={() => navigate('/')}
-              >
-                Back to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <button className="btn-back-booking" onClick={() => navigate(-1)}>← Back</button>
 
       <div className="booking-container">

@@ -6,7 +6,8 @@ import com.holidayVilla.holiday_villa_system.dto.RevenueAnalyticsResponse;
 import com.holidayVilla.holiday_villa_system.entity.*;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.BookingRepository;
-import com.holidayVilla.holiday_villa_system.repository.PaymentRepository;import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
+import com.holidayVilla.holiday_villa_system.repository.PaymentRepository;
+import com.holidayVilla.holiday_villa_system.repository.PromotionRepository;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,11 @@ public class PaymentService {
         PaymentType paymentType = parsePaymentType(req.getPaymentType());
         PaymentMethod paymentMethod = parsePaymentMethod(req.getPaymentMethod());
 
+        // Cash is checkout-only (remaining payment)
+        if (paymentMethod == PaymentMethod.CASH && paymentType != PaymentType.REMAINING) {
+            throw new IllegalArgumentException("Cash payment is only available for the remaining balance at checkout.");
+        }
+
         double total     = booking.getTotalPrice();
         double amountDue;
 
@@ -82,12 +88,20 @@ public class PaymentService {
                 if (booking.getPaymentStatus() != PaymentStatus.PARTIALLY_PAID) {
                     throw new IllegalStateException("No remaining balance. Booking is either unpaid or fully paid.");
                 }
+
+                // Prevent duplicates if a cash payment is already awaiting admin confirmation
+                if (paymentMethod == PaymentMethod.CASH
+                        && paymentRepository.existsByBookingIdAndPaymentTypeAndPaymentStatus(
+                        booking.getId(), PaymentType.REMAINING, PaymentTransactionStatus.PENDING)) {
+                    throw new IllegalStateException("A cash payment is already pending admin confirmation for this booking.");
+                }
+
                 amountDue = booking.getRemainingAmount();
             }
             default -> throw new IllegalArgumentException("Invalid payment type.");
         }
 
-        // Simulate payment — always succeeds
+        // Simulate payment
         String txRef = "TXN-" + UUID.randomUUID().toString().toUpperCase().replace("-", "").substring(0, 12);
 
         String cardLast4 = null;
@@ -98,13 +112,17 @@ public class PaymentService {
             }
         }
 
+        PaymentTransactionStatus txStatus = (paymentMethod == PaymentMethod.CASH && paymentType == PaymentType.REMAINING)
+            ? PaymentTransactionStatus.PENDING
+            : PaymentTransactionStatus.SUCCESS;
+
         Payment payment = Payment.builder()
                 .booking(booking)
                 .user(user)
                 .amount(amountDue)
                 .paymentType(paymentType)
                 .paymentMethod(paymentMethod)
-                .paymentStatus(PaymentTransactionStatus.SUCCESS)
+            .paymentStatus(txStatus)
                 .transactionReference(txRef)
                 .cardType(req.getCardType())
                 .cardLast4(cardLast4)
@@ -114,31 +132,78 @@ public class PaymentService {
 
         payment = paymentRepository.save(payment);
 
-        // Update booking financial state
-        switch (paymentType) {
-            case ADVANCE -> {
-                booking.setAmountPaid(round(amountDue));
-                booking.setRemainingAmount(round(total - amountDue));
-                booking.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
-                booking.setStatus(BookingStatus.CONFIRMED);
+        // Update booking financial state (only when payment is successful)
+        if (txStatus == PaymentTransactionStatus.SUCCESS) {
+            switch (paymentType) {
+                case ADVANCE -> {
+                    booking.setAmountPaid(round(amountDue));
+                    booking.setRemainingAmount(round(total - amountDue));
+                    booking.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
+                    booking.setStatus(BookingStatus.CONFIRMED);
+                }
+                case FULL -> {
+                    booking.setAmountPaid(total);
+                    booking.setRemainingAmount(0.0);
+                    booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
+                    booking.setStatus(BookingStatus.CONFIRMED);
+                }
+                case REMAINING -> {
+                    booking.setAmountPaid(total);
+                    booking.setRemainingAmount(0.0);
+                    booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
+                    booking.setStatus(BookingStatus.COMPLETED);
+                }
             }
-            case FULL -> {
-                booking.setAmountPaid(total);
-                booking.setRemainingAmount(0.0);
-                booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
-                booking.setStatus(BookingStatus.CONFIRMED);
-            }
-            case REMAINING -> {
-                booking.setAmountPaid(total);
-                booking.setRemainingAmount(0.0);
-                booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
-                booking.setStatus(BookingStatus.COMPLETED);
+            bookingRepository.save(booking);
+        }
+
+        // Send mock email confirmation
+        if (txStatus == PaymentTransactionStatus.SUCCESS) {
+            try {
+                emailService.sendPaymentConfirmation(payment);
+            } catch (Exception e) {
+                log.warn("Email notification failed: {}", e.getMessage());
             }
         }
 
+        return toResponse(payment);
+    }
+
+    // ── ADMIN: Confirm a pending CASH (checkout) payment ─────────────────────
+
+    @Transactional
+    public PaymentResponse markPendingCashPaymentAsPaid(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
+
+        if (payment.getPaymentMethod() != PaymentMethod.CASH) {
+            throw new IllegalArgumentException("Only CASH payments can be manually confirmed.");
+        }
+        if (payment.getPaymentType() != PaymentType.REMAINING) {
+            throw new IllegalArgumentException("Only REMAINING payments can be manually confirmed.");
+        }
+        if (payment.getPaymentStatus() != PaymentTransactionStatus.PENDING) {
+            throw new IllegalStateException("This payment is not pending confirmation.");
+        }
+
+        Booking booking = payment.getBooking();
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot confirm payment for a cancelled booking.");
+        }
+        if (booking.getPaymentStatus() != PaymentStatus.PARTIALLY_PAID) {
+            throw new IllegalStateException("Booking is not in a partially paid state.");
+        }
+
+        payment.setPaymentStatus(PaymentTransactionStatus.SUCCESS);
+        paymentRepository.save(payment);
+
+        // Complete booking
+        booking.setAmountPaid(booking.getTotalPrice());
+        booking.setRemainingAmount(0.0);
+        booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
+        booking.setStatus(BookingStatus.COMPLETED);
         bookingRepository.save(booking);
 
-        // Send mock email confirmation
         try {
             emailService.sendPaymentConfirmation(payment);
         } catch (Exception e) {
@@ -191,6 +256,8 @@ public class PaymentService {
         Double totalRemaining = paymentRepository.getTotalByPaymentType(PaymentType.REMAINING);
         Double totalFull      = paymentRepository.getTotalByPaymentType(PaymentType.FULL);
 
+        Double outstandingBalance = bookingRepository.getTotalOutstandingBalance();
+
         long totalBookings     = bookingRepository.count();
         long completedBookings = bookingRepository.countByStatus(BookingStatus.COMPLETED);
         long pendingPayments   = bookingRepository.countByPaymentStatusAndStatusNot(PaymentStatus.PARTIALLY_PAID, BookingStatus.CANCELLED);
@@ -223,6 +290,7 @@ public class PaymentService {
                 .totalAdvancePayments(totalAdvance)
                 .totalRemainingPayments(totalRemaining)
                 .totalFullPayments(totalFull)
+            .totalOutstandingBalance(outstandingBalance)
                 .totalBookings(totalBookings)
                 .totalCompletedBookings(completedBookings)
                 .totalPendingPayments(pendingPayments)

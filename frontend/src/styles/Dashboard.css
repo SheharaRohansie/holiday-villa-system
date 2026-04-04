@@ -81,6 +81,7 @@
   flex: 1;
   padding: 2rem;
   min-height: 100vh;
+  min-width: 0;
 }
 
 .tab-content {

@@ -56,3 +56,6 @@ export const getAllPaymentsApi = (): Promise<PaymentRecord[]> =>
 
 export const getRevenueAnalyticsApi = (): Promise<RevenueAnalytics> =>
   axiosInstance.get('/admin/analytics/revenue').then(r => r.data);
+
+export const markPaymentAsPaidApi = (paymentId: number): Promise<PaymentRecord> =>
+  axiosInstance.put(`/admin/payments/${paymentId}/mark-paid`).then(r => r.data);

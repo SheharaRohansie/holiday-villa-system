@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Tooltip,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { getRevenueAnalyticsApi, getAllPaymentsApi, downloadInvoiceApi } from '../api/paymentApi';
+import { getRevenueAnalyticsApi, getAllPaymentsApi, downloadInvoiceApi, markPaymentAsPaidApi } from '../api/paymentApi';
 import type { RevenueAnalytics, PaymentRecord } from '../types';
 import '../styles/Payment.css';
 
@@ -19,7 +19,7 @@ const fmtShort = (v: number | undefined) =>
     ? `LKR ${(v / 1000).toFixed(1)}K`
     : `LKR ${v.toFixed(0)}`;
 
-const PIE_COLORS = ['#023047', '#0077b6', '#00b4d8', '#90e0ef'];
+const PIE_COLORS = ['#023047', '#ffb703'];
 
 const typeBadgeClass = (type: string) => {
   if (type === 'ADVANCE')   return 'badge badge-advance';
@@ -44,13 +44,54 @@ const RevenueDashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<RevenueAnalytics | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [markingPaidId, setMarkingPaidId] = useState<number | null>(null);
+
+  const refresh = useCallback(async (opts?: { showSpinner?: boolean }) => {
+    const showSpinner = opts?.showSpinner ?? false;
+    if (showSpinner) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const [a, p] = await Promise.all([getRevenueAnalyticsApi(), getAllPaymentsApi()]);
+      setAnalytics(a);
+      setPayments(p);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    Promise.all([getRevenueAnalyticsApi(), getAllPaymentsApi()])
-      .then(([a, p]) => { setAnalytics(a); setPayments(p); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    void refresh({ showSpinner: true });
+
+    const onFocus = () => void refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(poll);
+    };
+  }, [refresh]);
+
+  // On some layouts, ResponsiveContainer can measure width/height before the grid
+  // settles; a couple delayed resizes makes the BarChart consistently appear.
+  useEffect(() => {
+    const delays = [50, 250, 750];
+    const ids = delays.map(ms => window.setTimeout(() => window.dispatchEvent(new Event('resize')), ms));
+    return () => ids.forEach(id => window.clearTimeout(id));
   }, []);
 
   const handleDownload = async (paymentId: number) => {
@@ -60,18 +101,32 @@ const RevenueDashboard: React.FC = () => {
     finally { setDownloadingId(null); }
   };
 
-  if (loading) return <div className="revenue-loading">Loading analytics…</div>;
+  const handleMarkPaid = async (paymentId: number) => {
+    setMarkingPaidId(paymentId);
+    try {
+      await markPaymentAsPaidApi(paymentId);
+      await refresh();
+    } catch {
+      alert('Failed to mark as paid.');
+    } finally {
+      setMarkingPaidId(null);
+    }
+  };
+
+  if (loading && !analytics) return <div className="revenue-loading">Loading analytics…</div>;
   if (!analytics) return <div className="revenue-loading" style={{ color: '#c62828' }}>Failed to load analytics.</div>;
 
   const pieData = [
-    { name: 'Advance',   value: analytics.totalAdvancePayments   || 0 },
-    { name: 'Full',      value: analytics.totalFullPayments       || 0 },
-    { name: 'Remaining', value: analytics.totalRemainingPayments  || 0 },
+    { name: 'Completed Payments (Paid)', value: analytics.totalRevenue || 0 },
+    { name: 'Remaining to Pay (Outstanding)', value: analytics.totalOutstandingBalance || 0 },
   ].filter(d => d.value > 0);
 
   return (
     <div className="revenue-dashboard">
       <div className="revenue-title">Revenue Analytics</div>
+      {refreshing && (
+        <div style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Refreshing…</div>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="stat-cards-grid">
@@ -127,30 +182,14 @@ const RevenueDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* ── Charts Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1.5rem', marginBottom: '1.5rem' }}>
-        {/* Monthly Revenue Bar Chart */}
-        <div className="chart-section">
-          <h3>Monthly Revenue</h3>
-          {analytics.monthlyRevenue.length === 0 ? (
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>No revenue data yet.</p>
+      {/* ── Charts ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        {/* Completed vs Remaining Pie Chart */}
+        <div className="chart-section" style={{ minWidth: 260 }}>
+          <h3>Paid vs Outstanding</h3>
+          {pieData.length === 0 ? (
+            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>No data yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={analytics.monthlyRevenue} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="monthLabel" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} width={80} />
-                <Tooltip formatter={(v: number | undefined) => fmt(v)} />
-                <Bar dataKey="revenue" fill="#0077b6" radius={[4, 4, 0, 0]} name="Revenue" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Payment Type Pie Chart */}
-        {pieData.length > 0 && (
-          <div className="chart-section" style={{ minWidth: 260 }}>
-            <h3>Payment Breakdown</h3>
             <PieChart width={240} height={260}>
               <Pie
                 data={pieData}
@@ -168,8 +207,8 @@ const RevenueDashboard: React.FC = () => {
               <Legend iconSize={10} wrapperStyle={{ fontSize: '0.8rem' }} />
               <Tooltip formatter={(v: number | undefined) => fmt(v)} />
             </PieChart>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── All Payments Table ── */}
@@ -188,9 +227,11 @@ const RevenueDashboard: React.FC = () => {
                   <th>Villa</th>
                   <th>Type</th>
                   <th>Method</th>
+                  <th>Status</th>
                   <th>Amount</th>
                   <th>Date</th>
                   <th>Invoice</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,6 +250,9 @@ const RevenueDashboard: React.FC = () => {
                       })()}
                     </td>
                     <td>{p.paymentMethod.replace('_', ' ')}</td>
+                    <td style={{ fontWeight: 700, color: p.paymentStatus === 'SUCCESS' ? '#2e7d32' : p.paymentStatus === 'PENDING' ? '#ef6c00' : '#c62828' }}>
+                      {p.paymentStatus}
+                    </td>
                     <td style={{ fontWeight: 700, color: '#2e7d32' }}>
                       {fmt(p.amount)}
                     </td>
@@ -217,10 +261,23 @@ const RevenueDashboard: React.FC = () => {
                       <button
                         className="btn-invoice-sm"
                         onClick={() => handleDownload(p.id)}
-                        disabled={downloadingId === p.id}
+                        disabled={downloadingId === p.id || p.paymentStatus !== 'SUCCESS'}
                       >
                         {downloadingId === p.id ? '…' : '📄 PDF'}
                       </button>
+                    </td>
+                    <td>
+                      {p.paymentMethod === 'CASH' && p.paymentType === 'REMAINING' && p.paymentStatus === 'PENDING' ? (
+                        <button
+                          className="btn-invoice-sm"
+                          onClick={() => handleMarkPaid(p.id)}
+                          disabled={markingPaidId === p.id}
+                        >
+                          {markingPaidId === p.id ? '…' : 'Mark as Paid'}
+                        </button>
+                      ) : (
+                        <span style={{ color: '#aaa' }}>—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

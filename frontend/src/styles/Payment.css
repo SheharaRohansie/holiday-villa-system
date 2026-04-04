@@ -321,6 +321,7 @@
 /* ===== REVENUE DASHBOARD ===== */
 .revenue-dashboard {
   padding: 1.5rem;
+  min-width: 0;
 }
 
 .revenue-title {

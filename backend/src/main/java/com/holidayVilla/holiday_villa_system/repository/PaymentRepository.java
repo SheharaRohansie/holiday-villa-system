@@ -24,6 +24,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     boolean existsByBookingIdAndPaymentStatus(Long bookingId, PaymentTransactionStatus status);
 
+    boolean existsByBookingIdAndPaymentTypeAndPaymentStatus(Long bookingId, PaymentType paymentType, PaymentTransactionStatus status);
+
     // ── Analytics ──────────────────────────────────────────────────────────────
 
             @Query("SELECT COALESCE(SUM(p.amount), 0) " +

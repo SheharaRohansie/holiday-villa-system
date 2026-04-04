@@ -118,6 +118,14 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getAllPayments());
     }
 
+    // ── ADMIN: Confirm pending CASH payments ─────────────────────────────────
+
+    @PutMapping("/api/admin/payments/{paymentId}/mark-paid")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PaymentResponse> markCashPaymentAsPaid(@PathVariable Long paymentId) {
+        return ResponseEntity.ok(paymentService.markPendingCashPaymentAsPaid(paymentId));
+    }
+
     // ── ADMIN: Revenue Analytics ──────────────────────────────────────────────
 
     @GetMapping("/api/admin/analytics/revenue")
