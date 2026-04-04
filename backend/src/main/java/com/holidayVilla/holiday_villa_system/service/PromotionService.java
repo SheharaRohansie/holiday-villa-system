@@ -93,7 +93,9 @@ public class PromotionService {
     public ApplicablePromotionResponse getApplicablePromotion(Long villaId, LocalDate checkIn, LocalDate checkOut,
                                                              Integer guests, String mealPlanRaw) {
         Villa villa = getVilla(villaId);
+        if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)) return null;
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
+        LocalDate stayEnd = checkOut.minusDays(1);
 
         double pricePerNight = villa.getPricePerNight();
         if (guests != null && mealPlanRaw != null && !mealPlanRaw.isBlank()) {
@@ -107,7 +109,7 @@ public class PromotionService {
 
         double originalPrice = nights * pricePerNight;
 
-        List<Promotion> applicable = promotionRepository.findApplicablePromotions(villaId, checkIn);
+        List<Promotion> applicable = promotionRepository.findApplicablePromotions(villaId, checkIn, stayEnd);
         if (applicable.isEmpty()) return null;
 
         Promotion promo = applicable.get(0);

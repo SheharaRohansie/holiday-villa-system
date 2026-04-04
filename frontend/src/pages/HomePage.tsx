@@ -13,19 +13,28 @@ const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const [villas, setVillas] = useState<Villa[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [highlightedVillaId, setHighlightedVillaId] = useState<number | null>(null);
-
-  const handleViewVilla = (villaId: number) => {
-    setHighlightedVillaId(villaId);
-    document.getElementById('villas')?.scrollIntoView({ behavior: 'smooth' });
-    // Clear highlight after 3 seconds
-    setTimeout(() => setHighlightedVillaId(null), 3000);
-  };
+  const todayIso = (() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
 
   useEffect(() => {
     getAllVillasApi().then(setVillas).catch(() => {});
-    getActivePromotionsApi().then(setPromotions).catch(() => {});
+    getActivePromotionsApi()
+      .then(list => {
+        // Keep future promos, hide expired ones.
+        setPromotions((list ?? []).filter(p => !p.endDate || p.endDate >= todayIso));
+      })
+      .catch(() => {});
   }, []);
+
+  const promoByVillaId = promotions.reduce<Record<number, Promotion>>((acc, p) => {
+    acc[p.villaId] = p;
+    return acc;
+  }, {});
 
   return (
     <div className="home">
@@ -85,49 +94,8 @@ const HomePage: React.FC = () => {
         ) : (
           <div className="villa-grid-live">
             {villas.map(v => (
-              <div
-                key={v.id}
-                id={`villa-${v.id}`}
-                className={highlightedVillaId === v.id ? 'villa-highlight-wrapper' : ''}
-              >
-                <VillaCard villa={v} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Offers Section */}
-      <section className="section offers-section" id="offers">
-        <div className="section-header light">
-          <h2>Current Offers & Promotions</h2>
-          <p>Exclusive deals crafted just for you</p>
-        </div>
-        {promotions.length === 0 ? (
-          <div className="offers-grid">
-            {offersData.map((offer) => (
-              <div key={offer.id} className="offer-card">
-                <div className="offer-badge">{offer.discount}</div>
-                <h3>{offer.title}</h3>
-                <p>{offer.description}</p>
-                <span className="offer-validity">Valid until {offer.validity}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="offers-grid">
-            {promotions.map(promo => (
-              <div key={promo.id} className="offer-card live-offer-card">
-                <div className="offer-badge">
-                  {promo.discountType === 'PERCENTAGE'
-                    ? `${promo.discountValue}% OFF`
-                    : `LKR ${promo.discountValue.toLocaleString()} OFF`}
-                </div>
-                <div className="offer-villa-tag">{promo.villaName}</div>
-                <h3>{promo.title}</h3>
-                <p>{promo.description}</p>
-                <span className="offer-validity">Valid until {promo.endDate}</span>
-                <button className="btn-offer-view" onClick={() => handleViewVilla(promo.villaId)}>View Villa →</button>
+              <div key={v.id}>
+                <VillaCard villa={v} promotion={promoByVillaId[v.id] ?? null} />
               </div>
             ))}
           </div>
@@ -190,7 +158,6 @@ const HomePage: React.FC = () => {
             <ul>
               <li><Link to="/">Home</Link></li>
               <li><a href="#villas">Villas</a></li>
-              <li><a href="#offers">Offers</a></li>
               <li><Link to="/login">Login</Link></li>
             </ul>
           </div>
@@ -241,30 +208,6 @@ const villaData = [
     price: 'From $520/night',
     icon: '🐚',
     gradient: 'linear-gradient(135deg, #4361ee, #7209b7)',
-  },
-];
-
-const offersData = [
-  {
-    id: 1,
-    title: 'Early Bird Special',
-    description: 'Book 30 days in advance and save big on any villa of your choice.',
-    discount: '20% OFF',
-    validity: 'Dec 2026',
-  },
-  {
-    id: 2,
-    title: 'Honeymoon Package',
-    description: 'Includes champagne breakfast, sunset dinner, and couple spa session.',
-    discount: 'Special Bundle',
-    validity: 'Dec 2026',
-  },
-  {
-    id: 3,
-    title: 'Weekend Escape',
-    description: 'Stay 2 nights on weekends and enjoy complimentary water sports activities.',
-    discount: '15% OFF',
-    validity: 'Oct 2026',
   },
 ];
 

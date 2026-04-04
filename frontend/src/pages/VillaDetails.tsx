@@ -29,6 +29,14 @@ const VillaDetails: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
+    const todayIso = (() => {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    })();
+
     setLoading(true);
     getVillaByIdApi(Number(id))
       .then(data => {
@@ -45,7 +53,9 @@ const VillaDetails: React.FC = () => {
     // Fetch active promotions for this villa
     getActivePromotionsApi()
       .then(promos => {
-        const match = promos.find(p => p.villaId === Number(id));
+        const match = (promos ?? [])
+          .filter(p => (!p.endDate || p.endDate >= todayIso))
+          .find(p => p.villaId === Number(id));
         setPromotion(match ?? null);
       })
       .catch(() => {});

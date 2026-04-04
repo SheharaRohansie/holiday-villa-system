@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Villa } from '../types';
+import type { Promotion, Villa } from '../types';
 import StarRating from './StarRating';
 import '../styles/Villa.css';
 
 interface VillaCardProps {
   villa: Villa;
+  promotion?: Promotion | null;
 }
 
-const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
+const VillaCard: React.FC<VillaCardProps> = ({ villa, promotion = null }) => {
   const images = villa.imageUrls?.filter(u => u?.trim()) ?? [];
   const hasMultiple = images.length > 1;
   const [current, setCurrent] = useState(0);
@@ -45,6 +46,10 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
     }
   })();
   const priceLabel = `LKR ${Number(minPrice).toLocaleString()}`;
+
+  const promoDesc = promotion
+    ? (promotion.description.length > 70 ? promotion.description.slice(0, 70) + '…' : promotion.description)
+    : '';
 
   return (
     <div className="villa-card-live">
@@ -83,6 +88,22 @@ const VillaCard: React.FC<VillaCardProps> = ({ villa }) => {
         <h3 className="villa-card-name">{villa.name}</h3>
         {villa.type && <div className="villa-card-type">{villa.type}</div>}
         <p className="villa-card-desc">{shortDesc}</p>
+
+        {promotion && (
+          <div className="villa-card-promo">
+            <div className="villa-card-promo-header">
+              <span className="villa-card-promo-badge">
+                {promotion.discountType === 'PERCENTAGE'
+                  ? `${promotion.discountValue}% OFF`
+                  : `LKR ${promotion.discountValue.toLocaleString()} OFF`}
+              </span>
+              <span className="villa-card-promo-valid">Valid until {promotion.endDate}</span>
+            </div>
+            <div className="villa-card-promo-title">{promotion.title}</div>
+            <div className="villa-card-promo-desc">{promoDesc}</div>
+          </div>
+        )}
+
         {villa.reviewCount > 0 ? (
           <div className="villa-card-rating">
             <StarRating value={Math.round(villa.averageRating)} size="sm" />

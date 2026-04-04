@@ -41,7 +41,6 @@ const Navbar: React.FC = () => {
         {!isAuthNavRestricted && (
           <>
             <li><a href="#villas" onClick={() => setMenuOpen(false)}>Villas</a></li>
-            <li><a href="#offers" onClick={() => setMenuOpen(false)}>Offers</a></li>
           </>
         )}
 

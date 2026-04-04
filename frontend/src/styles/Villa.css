@@ -396,6 +396,54 @@
   margin-top: 1rem;
 }
 
+/* ── Villa Card Promotion Snippet ─────────────────────────────────────── */
+.villa-card-promo {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #f59e0b;
+}
+
+.villa-card-promo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.villa-card-promo-badge {
+  display: inline-block;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+
+.villa-card-promo-valid {
+  font-size: 0.72rem;
+  color: #92400e;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.villa-card-promo-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 0.15rem;
+}
+
+.villa-card-promo-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
 /* ===== ADMIN Edit button ===== */
 .btn-edit {
   background: linear-gradient(135deg, #0077b6, #00b4d8);

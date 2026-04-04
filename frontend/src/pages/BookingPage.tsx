@@ -59,7 +59,6 @@ const BookingPage: React.FC = () => {
   // ── Promotion state ─────────────────────────────────────────────────────
   const [promotion, setPromotion] = useState<ApplicablePromotion | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
-  const [promoChoice, setPromoChoice] = useState<'apply' | 'skip' | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -137,12 +136,11 @@ const BookingPage: React.FC = () => {
 
   // ── When dates change, check for applicable promotion ──────────────────
   const checkPromotion = useCallback(async () => {
-    if (!villa || nights <= 0) { setPromotion(null); setPromoChoice(null); return; }
+    if (!villa || nights <= 0) { setPromotion(null); return; }
     setPromoLoading(true);
     try {
       const result = await getApplicablePromotionApi(villa.id, checkIn, checkOut, guestCount, mealPlan);
       setPromotion(result ?? null);
-      setPromoChoice(null); // reset choice when dates change
     } catch {
       setPromotion(null);
     } finally {
@@ -154,10 +152,8 @@ const BookingPage: React.FC = () => {
 
 
   // ── Effective price ────────────────────────────────────────────────────
-  const effectiveTotal = (promotion && promoChoice === 'apply')
-    ? promotion.finalPrice
-    : originalTotal;
-  const discountAmount = (promotion && promoChoice === 'apply') ? promotion.discountAmount : 0;
+  const effectiveTotal = promotion ? promotion.finalPrice : originalTotal;
+  const discountAmount = promotion ? promotion.discountAmount : 0;
   const advanceAmount  = Math.round(effectiveTotal * 0.30 * 100) / 100;
   const remainingAmount = Math.round((effectiveTotal - advanceAmount) * 100) / 100;
 
@@ -182,12 +178,6 @@ const BookingPage: React.FC = () => {
     if (nights <= 0) { setSubmitError('Check-out must be after check-in.'); return; }
     if (!villa) return;
 
-    // Require a promotion choice if a promotion is available
-    if (promotion && promoChoice === null) {
-      setSubmitError('Please choose whether to apply the promotion or continue without it.');
-      return;
-    }
-
     setSubmitting(true);
     try {
       // Step 1: Create booking with optional promotion
@@ -197,8 +187,8 @@ const BookingPage: React.FC = () => {
         mealPlan,
         checkInDate: checkInIso,
         checkOutDate: checkOutIso,
-        appliedPromotionId: (promotion && promoChoice === 'apply') ? promotion.promotionId : null,
-        promotionAccepted: promoChoice === 'apply',
+        appliedPromotionId: promotion ? promotion.promotionId : null,
+        promotionAccepted: Boolean(promotion),
       });
 
       // Step 2: Payment is required to complete reservation
@@ -319,7 +309,7 @@ const BookingPage: React.FC = () => {
                   <span>{formatLKR(pricePerNight)} × {nights} night{nights !== 1 ? 's' : ''}</span>
                   <span>{formatLKR(originalTotal)}</span>
                 </div>
-                {promoChoice === 'apply' && promotion && (
+                {promotion && (
                   <div className="price-row price-discount">
                     <span>🎉 Promotion Discount</span>
                     <span style={{ color: '#2e7d32' }}>−{formatLKR(discountAmount)}</span>
@@ -329,7 +319,7 @@ const BookingPage: React.FC = () => {
                 <div className="price-row price-total">
                   <span>Total</span>
                   <span>
-                    {promoChoice === 'apply' && promotion ? (
+                    {promotion ? (
                       <>
                         <s style={{ color: '#aaa', marginRight: 6 }}>{formatLKR(originalTotal)}</s>
                         {formatLKR(effectiveTotal)}
@@ -359,7 +349,7 @@ const BookingPage: React.FC = () => {
             {nights > 0 && !promoLoading && promotion && (
               <div className="promo-offer-card">
                 <div className="promo-offer-header">
-                  🔥 Special Offer Available!
+                  🔥 Promotion Applied Automatically
                 </div>
                 <div className="promo-offer-title">{promotion.title}</div>
                 <div className="promo-offer-desc">{promotion.description}</div>
@@ -379,27 +369,8 @@ const BookingPage: React.FC = () => {
                     <span>{formatLKR(promotion.finalPrice)}</span>
                   </div>
                 </div>
-                <div className="promo-offer-choices">
-                  <label className={`promo-choice-label ${promoChoice === 'apply' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="promoChoice"
-                      value="apply"
-                      checked={promoChoice === 'apply'}
-                      onChange={() => setPromoChoice('apply')}
-                    />
-                    ✅ Apply Promotion
-                  </label>
-                  <label className={`promo-choice-label ${promoChoice === 'skip' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="promoChoice"
-                      value="skip"
-                      checked={promoChoice === 'skip'}
-                      onChange={() => setPromoChoice('skip')}
-                    />
-                    Continue Without Promotion
-                  </label>
+                <div style={{ marginTop: '0.6rem', fontSize: '0.85rem', color: '#666' }}>
+                  This discount is applied automatically when your villa and dates match the promotion period.
                 </div>
               </div>
             )}

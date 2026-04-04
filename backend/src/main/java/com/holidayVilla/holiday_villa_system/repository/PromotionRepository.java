@@ -25,19 +25,23 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
         void deleteByVilla_Id(Long villaId);
 
     /**
-     * Find the first active promotion applicable to a given villa and check-in date.
-     * startDate <= checkInDate <= endDate and isActive = true
+     * Find active promotions applicable to a given villa and stay window.
+     * Applies only when:
+     * - startDate <= checkIn
+     * - stayEnd (last night) <= endDate
+     * - isActive = true
      */
     @Query("SELECT p FROM Promotion p " +
            "WHERE p.villa.id = :villaId " +
                  "AND p.villa.isDeleted = false " +
            "AND p.isActive = true " +
            "AND :checkIn >= p.startDate " +
-           "AND :checkIn <= p.endDate " +
+          "AND :stayEnd <= p.endDate " +
            "ORDER BY p.createdAt DESC")
     List<Promotion> findApplicablePromotions(
             @Param("villaId") Long villaId,
-            @Param("checkIn") LocalDate checkIn
+           @Param("checkIn") LocalDate checkIn,
+           @Param("stayEnd") LocalDate stayEnd
     );
 
     // Analytics helpers

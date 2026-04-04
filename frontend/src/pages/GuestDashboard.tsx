@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { deleteMyAccountApi, getUserByIdApi, updateProfileApi } from '../api/userApi';
 import { getAllVillasApi } from '../api/villaApi';
 import { getMyBookingsApi, cancelBookingApi } from '../api/bookingApi';
-import type { UpdateProfileRequest, Villa, Booking, UserResponse } from '../types';
+import { getActivePromotionsApi } from '../api/promotionApi';
+import type { UpdateProfileRequest, Villa, Booking, Promotion, UserResponse } from '../types';
 import VillaCard from '../components/VillaCard';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import Toast from '../components/Toast';
@@ -19,6 +20,7 @@ const GuestDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'villas' | 'reservations' | 'profile'>('overview');
   const [message, setMessage] = useState('');
   const [villas, setVillas] = useState<Villa[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
 
@@ -41,8 +43,24 @@ const GuestDashboard: React.FC = () => {
 
   useEffect(() => {
     getAllVillasApi().then(setVillas).catch(() => {});
+    const todayIso = (() => {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    })();
+
+    getActivePromotionsApi()
+      .then(list => setPromotions((list ?? []).filter(p => !p.endDate || p.endDate >= todayIso)))
+      .catch(() => setPromotions([]));
     loadMyBookings();
   }, []);
+
+  const promoByVillaId = promotions.reduce<Record<number, Promotion>>((acc, p) => {
+    acc[p.villaId] = p;
+    return acc;
+  }, {});
 
   useEffect(() => {
     const qs = new URLSearchParams(location.search);
@@ -236,7 +254,9 @@ const GuestDashboard: React.FC = () => {
               <p className="empty-state">No villas available at the moment. Check back soon!</p>
             ) : (
               <div className="guest-villas-grid">
-                {villas.map(v => <VillaCard key={v.id} villa={v} />)}
+                {villas.map(v => (
+                  <VillaCard key={v.id} villa={v} promotion={promoByVillaId[v.id] ?? null} />
+                ))}
               </div>
             )}
           </div>

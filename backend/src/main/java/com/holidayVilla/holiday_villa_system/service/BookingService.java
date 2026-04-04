@@ -59,21 +59,23 @@ public class BookingService {
         double discountAmount = 0.0;
         double finalPrice = originalPrice;
 
-        if (dto.getAppliedPromotionId() != null && Boolean.TRUE.equals(dto.getPromotionAccepted())) {
-            Promotion promo = promotionRepository.findById(dto.getAppliedPromotionId()).orElse(null);
-            if (promo != null && promo.getIsActive()
-                    && !dto.getCheckInDate().isBefore(promo.getStartDate())
-                    && !dto.getCheckInDate().isAfter(promo.getEndDate())) {
-                if (promo.getDiscountType() == DiscountType.PERCENTAGE) {
-                    discountAmount = round(originalPrice * promo.getDiscountValue() / 100.0);
-                } else {
-                    discountAmount = Math.min(originalPrice, promo.getDiscountValue());
-                }
-                discountAmount = round(discountAmount);
-                finalPrice = Math.max(0, round(originalPrice - discountAmount));
-                appliedPromotion = promo;
-                promotionAccepted = true;
+        // Promotions are applied automatically when the villa + full stay window
+        // (check-in through last night) falls within the promotion period.
+        LocalDate stayEnd = dto.getCheckOutDate().minusDays(1);
+        Promotion promo = promotionRepository
+                .findApplicablePromotions(villa.getId(), dto.getCheckInDate(), stayEnd)
+                .stream().findFirst().orElse(null);
+
+        if (promo != null) {
+            if (promo.getDiscountType() == DiscountType.PERCENTAGE) {
+                discountAmount = round(originalPrice * promo.getDiscountValue() / 100.0);
+            } else {
+                discountAmount = Math.min(originalPrice, promo.getDiscountValue());
             }
+            discountAmount = round(discountAmount);
+            finalPrice = Math.max(0, round(originalPrice - discountAmount));
+            appliedPromotion = promo;
+            promotionAccepted = true;
         }
 
         double effectiveTotal = finalPrice; // payment calcs use this
