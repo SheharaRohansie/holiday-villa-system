@@ -119,6 +119,14 @@ public class AuthService {
             if (passportNumber == null || passportNumber.isBlank()) {
                 throw new IllegalArgumentException("Passport number is required for non-Sri Lankan nationals");
             }
+
+            String p = passportNumber.trim();
+            if (p.length() > 10) {
+                throw new IllegalArgumentException("Passport number cannot exceed 10 characters");
+            }
+            if (!p.matches("^[A-Za-z0-9]{1,10}$")) {
+                throw new IllegalArgumentException("Passport number can contain only letters and numbers");
+            }
         }
     }
 }

@@ -44,6 +44,7 @@ interface FormState {
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
 const NIC_REGEX = /^(\d{12}|\d{9}[Vv])$/;
+const PASSPORT_REGEX = /^[A-Za-z0-9]{1,10}$/;
 
 const normalizeCountryKey = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
@@ -175,6 +176,11 @@ const RegisterPage: React.FC = () => {
         // If user is typing the old NIC format (9 digits + V), digits length will be <= 9.
         return `${limitedDigits}${maybeV}`;
       }
+      if (name === 'passportNumber') {
+        // Passport: allow only letters + numbers, max 10 characters.
+        const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');
+        return cleaned.slice(0, 10);
+      }
       return value;
     })();
 
@@ -216,6 +222,12 @@ const RegisterPage: React.FC = () => {
       if (status === 'TOO_SHORT') setErrors(prev => ({ ...prev, phoneNumber: 'Number is too short' }));
       else if (status === 'INVALID_LENGTH') setErrors(prev => ({ ...prev, phoneNumber: 'Invalid number length' }));
       else setErrors(prev => ({ ...prev, phoneNumber: '' }));
+    } else if (name === 'passportNumber') {
+      const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');
+      let msg = '';
+      if (value.length > 10) msg = 'Passport number cannot exceed 10 characters';
+      else if (value !== cleaned) msg = 'Passport number can contain only letters and numbers';
+      setErrors(prev => ({ ...prev, passportNumber: msg }));
     } else {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -263,7 +275,10 @@ const RegisterPage: React.FC = () => {
       if (!formData.nic.trim()) newErrors.nic = 'NIC is required for Sri Lankan nationals';
       else if (!NIC_REGEX.test(formData.nic.trim())) newErrors.nic = 'NIC must be 12 digits, or 9 digits followed by V';
     } else if (formData.nationality) {
-      if (!formData.passportNumber.trim()) newErrors.passportNumber = 'Passport number is required';
+      const p = formData.passportNumber.trim();
+      if (!p) newErrors.passportNumber = 'Passport number is required';
+      else if (p.length > 10) newErrors.passportNumber = 'Passport number cannot exceed 10 characters';
+      else if (!PASSPORT_REGEX.test(p)) newErrors.passportNumber = 'Passport number can contain only letters and numbers';
     }
 
     if (!formData.password) {
