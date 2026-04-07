@@ -107,19 +107,18 @@ const HomePage: React.FC = () => {
           <div className="about-text">
             <h2>About Holiday Villa Resort</h2>
             <p>
-              Nestled along the pristine shores of Sri Lanka's southern coast, Holiday Villa Resort
-              offers an unparalleled blend of natural beauty, cultural richness, and world-class
-              hospitality. Our resort spans over 10 acres of lush tropical gardens leading directly
-              to a private white sand beach.
+              Set in a calm and serene inland setting, this location offers a perfect escape from the busy coastal crowds, surrounded by lush tropical greenery and a peaceful residential atmosphere. 
+              The environment reflects authentic Sri Lankan living, with quiet streets, natural surroundings, and a refreshing sense of privacy and relaxation. 
+              While the ocean is just a short drive away, the area provides a tranquil retreat, ideal for unwinding in comfort while still enjoying easy access to nearby beaches and attractions.
             </p>
             <p>
               Whether you're seeking a romantic escape, a family adventure, or a corporate retreat,
               our expertly curated experiences ensure an unforgettable stay.
             </p>
             <div className="about-stats">
-              <div className="stat"><span className="stat-number">25+</span><span>Luxury Villas</span></div>
-              <div className="stat"><span className="stat-number">500m</span><span>Beach Front</span></div>
-              <div className="stat"><span className="stat-number">4.9★</span><span>Guest Rating</span></div>
+              <div className="stat"><span className="stat-number">4+</span><span>Luxury Villas</span></div>
+              <div className="stat"><span className="stat-number">500m</span><span>City access</span></div>
+              <div className="stat"><span className="stat-number">4.5★</span><span>Guest Rating</span></div>
             </div>
           </div>
           <div className="about-map">
