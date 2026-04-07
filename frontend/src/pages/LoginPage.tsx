@@ -60,7 +60,7 @@ const LoginPage: React.FC = () => {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Please enter a valid email address.';
     if (!formData.password) newErrors.password = 'Password is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -92,11 +92,23 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // Spring Security auth failures come back as 401 with a generic message.
+      if (status === 404) {
+        setServerError('No account found with this email. Please register first.');
+        return;
+      }
+
       if (status === 401) {
-        setServerError('Invalid email or password. Please try again.');
+        setServerError('Incorrect password. Please try again.');
+        return;
+      }
+
+      const msg = (message || '').trim();
+      if (msg === 'No account found with this email. Please register first.') {
+        setServerError(msg);
+      } else if (msg === 'Incorrect password. Please try again.') {
+        setServerError(msg);
       } else {
-        setServerError(message || 'Login failed. Please try again.');
+        setServerError(msg || 'Login failed. Please try again.');
       }
     } finally {
       setLoading(false);

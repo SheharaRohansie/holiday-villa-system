@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { registerWithOtpApi, sendRegistrationOtpApi } from '../api/authApi';
 import type { RegisterRequest } from '../types';
@@ -28,6 +28,7 @@ const getApiError = (err: unknown): { status?: number; message?: string; fieldEr
 };
 
 const OTP_REGEX = /^\d{6}$/;
+const OTP_LENGTH = 6;
 
 const OTPVerification: React.FC = () => {
   const navigate = useNavigate();
@@ -38,10 +39,14 @@ const OTPVerification: React.FC = () => {
     return state?.registrationDraft;
   }, [location.state]);
 
-  const [otp, setOtp] = useState('');
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array.from({ length: OTP_LENGTH }, () => ''));
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const otp = useMemo(() => otpDigits.join(''), [otpDigits]);
 
   useEffect(() => {
     if (!serverError) return;
@@ -51,10 +56,88 @@ const OTPVerification: React.FC = () => {
 
   if (!registrationDraft) return <Navigate to="/register" replace />;
 
-  const handleOtpChange = (value: string) => {
-    const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
-    setOtp(digitsOnly);
+  const focusOtpIndex = (index: number) => {
+    const el = otpRefs.current[index];
+    if (!el) return;
+    el.focus();
+    el.select?.();
+  };
+
+  useEffect(() => {
+    focusOtpIndex(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setOtpDigit = (index: number, digit: string) => {
+    setOtpDigits(prev => {
+      const next = [...prev];
+      next[index] = digit;
+      return next;
+    });
+  };
+
+  const handleOtpBoxChange = (index: number, rawValue: string) => {
+    const digitsOnly = (rawValue || '').replace(/\D/g, '');
     setServerError('');
+
+    if (!digitsOnly) {
+      setOtpDigit(index, '');
+      return;
+    }
+
+    const digit = digitsOnly.slice(-1);
+    setOtpDigit(index, digit);
+    if (index < OTP_LENGTH - 1) focusOtpIndex(index + 1);
+  };
+
+  const handleOtpBoxKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      if (otpDigits[index]) {
+        setOtpDigit(index, '');
+        return;
+      }
+      if (index > 0) {
+        setOtpDigit(index - 1, '');
+        focusOtpIndex(index - 1);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (index > 0) focusOtpIndex(index - 1);
+      return;
+    }
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (index < OTP_LENGTH - 1) focusOtpIndex(index + 1);
+      return;
+    }
+
+    if (e.key.length === 1 && !/\d/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleOtpBoxPaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const digits = (text || '').replace(/\D/g, '');
+    if (!digits) return;
+    e.preventDefault();
+
+    const sliced = digits.slice(0, OTP_LENGTH - index);
+    setOtpDigits(prev => {
+      const next = [...prev];
+      for (let i = 0; i < sliced.length; i++) {
+        next[index + i] = sliced[i];
+      }
+      return next;
+    });
+
+    const nextIndex = Math.min(index + sliced.length, OTP_LENGTH - 1);
+    focusOtpIndex(nextIndex);
   };
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -108,17 +191,28 @@ const OTPVerification: React.FC = () => {
           <form onSubmit={handleVerify} noValidate>
             <div className="form-group">
               <label htmlFor="otp">OTP Code</label>
-              <input
-                id="otp"
-                name="otp"
-                type="text"
-                value={otp}
-                onChange={(e) => handleOtpChange(e.target.value)}
-                placeholder="123456"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-              />
+
+              <div className="otp-input-group" aria-label="One-time password">
+                <div className="otp-inputs">
+                  {otpDigits.map((d, i) => (
+                    <input
+                      key={i}
+                      ref={(el) => { otpRefs.current[i] = el; }}
+                      className="otp-box"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                      maxLength={1}
+                      value={d}
+                      onChange={(e) => handleOtpBoxChange(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpBoxKeyDown(i, e)}
+                      onPaste={(e) => handleOtpBoxPaste(i, e)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      aria-label={`OTP digit ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             <button type="submit" className="btn-auth" disabled={loading}>

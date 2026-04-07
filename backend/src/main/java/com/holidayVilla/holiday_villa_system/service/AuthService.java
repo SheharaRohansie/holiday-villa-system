@@ -5,11 +5,13 @@ import com.holidayVilla.holiday_villa_system.dto.LoginRequest;
 import com.holidayVilla.holiday_villa_system.dto.RegisterRequest;
 import com.holidayVilla.holiday_villa_system.entity.Role;
 import com.holidayVilla.holiday_villa_system.entity.User;
+import com.holidayVilla.holiday_villa_system.exception.AuthFailedException;
 import com.holidayVilla.holiday_villa_system.exception.EmailAlreadyExistsException;
 import com.holidayVilla.holiday_villa_system.exception.ResourceNotFoundException;
 import com.holidayVilla.holiday_villa_system.repository.UserRepository;
 import com.holidayVilla.holiday_villa_system.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -83,12 +85,17 @@ public class AuthService {
         }
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "No account found with this email. Please register first."));
+
+        try {
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (BadCredentialsException ex) {
+            throw new AuthFailedException("Incorrect password. Please try again.");
+        }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtUtil.generateToken(userDetails);

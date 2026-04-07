@@ -43,7 +43,7 @@ public class UserController {
     }
 
     @GetMapping("/admin/guests")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<List<UserResponse>> getAllGuests() {
         return ResponseEntity.ok(userService.getAllGuests());
     }
@@ -74,7 +74,7 @@ public class UserController {
     // ---- Guest self-service endpoints ----
 
     @DeleteMapping("/users/me")
-    @PreAuthorize("hasRole('GUEST')")
+    @PreAuthorize("hasAnyRole('GUEST','STAFF')")
     public ResponseEntity<MessageResponse> deleteMyAccount(@AuthenticationPrincipal UserDetails userDetails) {
         userService.deleteMyAccount(userDetails.getUsername());
         return ResponseEntity.ok(new MessageResponse("Account deleted successfully"));
