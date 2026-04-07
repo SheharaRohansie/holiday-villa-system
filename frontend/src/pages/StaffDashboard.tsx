@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getAllBookingsApi, completePaymentApi } from '../api/bookingApi';
-import { getAllGuestsApi, updateProfileApi } from '../api/userApi';
+import { getAllBookingsApi } from '../api/bookingApi';
+import { deleteMyAccountApi, getAllGuestsApi, updateProfileApi } from '../api/userApi';
+import { getAllVillasApi } from '../api/villaApi';
 import { COUNTRIES } from '../data/countries';
-import type { Booking, UpdateProfileRequest, UserResponse } from '../types';
+import type { Booking, UpdateProfileRequest, UserResponse, Villa } from '../types';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import '../styles/Dashboard.css';
 
 const StaffDashboard: React.FC = () => {
@@ -17,6 +19,8 @@ const StaffDashboard: React.FC = () => {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [guests, setGuests] = useState<UserResponse[]>([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
+  const [villas, setVillas] = useState<Villa[]>([]);
+  const [villasLoading, setVillasLoading] = useState(false);
   const [guestNationalityFilter, setGuestNationalityFilter] = useState<string>('');
 
   const [profileForm, setProfileForm] = useState<UpdateProfileRequest>({
@@ -25,6 +29,9 @@ const StaffDashboard: React.FC = () => {
     newPassword: '',
   });
   const [profileErrors, setProfileErrors] = useState<UpdateProfileRequest>({});
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -58,26 +65,45 @@ const StaffDashboard: React.FC = () => {
     }
   };
 
+  const loadVillas = async () => {
+    setVillasLoading(true);
+    try {
+      const data = await getAllVillasApi();
+      setVillas(data);
+    } catch {
+      setMessage('Failed to load villas.');
+    } finally {
+      setVillasLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadBookings();
     loadGuests();
+    loadVillas();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      loadBookings();
+      loadGuests();
+      loadVillas();
+      return;
+    }
+    if (activeTab === 'reservations') {
+      loadBookings();
+      return;
+    }
+    if (activeTab === 'guests') {
+      loadGuests();
+    }
+  }, [activeTab]);
 
   const filteredGuests = useMemo(() => {
     const f = (guestNationalityFilter || '').trim();
     if (!f) return guests;
     return guests.filter(g => (g.nationality || '').trim() === f);
   }, [guestNationalityFilter, guests]);
-
-  const handleCompletePayment = async (bookingId: number) => {
-    try {
-      await completePaymentApi(bookingId);
-      setMessage('Payment completed. Booking marked as COMPLETED.');
-      loadBookings();
-    } catch {
-      setMessage('Failed to complete payment.');
-    }
-  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,12 +121,37 @@ const StaffDashboard: React.FC = () => {
         currentPassword: profileForm.currentPassword || undefined,
         newPassword: profileForm.newPassword || undefined,
       });
+      const nextEmail = updated.email;
+      const emailChanged = !!nextEmail && nextEmail !== user.email;
+      if (emailChanged) {
+        setMessage('Email updated. Please log in again.');
+        window.setTimeout(() => {
+          logout();
+          navigate('/login', { replace: true });
+        }, 900);
+        return;
+      }
+
       setMessage('Profile updated successfully!');
-      login({ ...user, email: updated.email });
+      login({ ...user, email: nextEmail || user.email });
       setProfileForm(p => ({ ...p, currentPassword: '', newPassword: '' }));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setMessage(e.response?.data?.message || 'Update failed.');
+    }
+  };
+
+  const handleDeleteMyAccount = async () => {
+    if (!user) return;
+    setDeleteProcessing(true);
+    try {
+      await deleteMyAccountApi();
+      logout();
+      navigate('/', { replace: true });
+    } catch {
+      setMessage('Failed to delete account.');
+      setDeleteProcessing(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -144,10 +195,21 @@ const StaffDashboard: React.FC = () => {
           <div className="tab-content">
             <h2 className="tab-title">Staff Dashboard</h2>
             <div className="stats-grid">
-              <div className="stat-card"><span className="stat-icon">📅</span><h3>—</h3><p>Reservations Today</p></div>
-              <div className="stat-card"><span className="stat-icon">✅</span><h3>—</h3><p>Check-ins Today</p></div>
-              <div className="stat-card"><span className="stat-icon">🚪</span><h3>—</h3><p>Check-outs Today</p></div>
-              <div className="stat-card"><span className="stat-icon">🏨</span><h3>25</h3><p>Total Villas</p></div>
+              <div className="stat-card">
+                <span className="stat-icon">🧳</span>
+                <h3>{guestsLoading ? '—' : guests.length}</h3>
+                <p>Total Guests</p>
+              </div>
+              <div className="stat-card">
+                <span className="stat-icon">🏨</span>
+                <h3>{villasLoading ? '—' : villas.length}</h3>
+                <p>Total Villas</p>
+              </div>
+              <div className="stat-card">
+                <span className="stat-icon">📅</span>
+                <h3>{bookingsLoading ? '—' : bookings.length}</h3>
+                <p>Total Bookings</p>
+              </div>
             </div>
             <div className="welcome-banner">
               <h3>Welcome back, {user?.firstName}!</h3>
@@ -173,13 +235,10 @@ const StaffDashboard: React.FC = () => {
                       <th>Villa</th>
                       <th>Check-in</th>
                       <th>Check-out</th>
-                      <th>Nights</th>
                       <th>Total (LKR)</th>
                       <th>Paid (LKR)</th>
-                      <th>Remaining (LKR)</th>
                       <th>Booking Status</th>
                       <th>Payment Status</th>
-                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -195,12 +254,8 @@ const StaffDashboard: React.FC = () => {
                         <td>{b.villaName}</td>
                         <td>{b.checkInDate}</td>
                         <td>{b.checkOutDate}</td>
-                        <td>{b.nights}</td>
                         <td>{b.totalPrice.toLocaleString()}</td>
                         <td className="paid-amount">{b.amountPaid.toLocaleString()}</td>
-                        <td className={b.remainingAmount > 0 ? 'remaining-amount' : 'paid-amount'}>
-                          {b.remainingAmount.toLocaleString()}
-                        </td>
                         <td>
                           <span className={`badge-status status-${b.status.toLowerCase()}`}>{b.status}</span>
                         </td>
@@ -208,13 +263,6 @@ const StaffDashboard: React.FC = () => {
                           <span className={`badge-payment payment-${b.paymentStatus.toLowerCase().replace('_', '-')}`}>
                             {b.paymentStatus.replace('_', ' ')}
                           </span>
-                        </td>
-                        <td>
-                          {b.remainingAmount > 0 && b.status !== 'CANCELLED' && (
-                            <button className="btn-complete-payment" onClick={() => handleCompletePayment(b.id)}>
-                              Complete Payment
-                            </button>
-                          )}
                         </td>
                       </tr>
                     ))}
@@ -313,10 +361,28 @@ const StaffDashboard: React.FC = () => {
                 </div>
                 <button type="submit" className="btn-primary-action">Update Profile</button>
               </form>
+
+              <hr />
+              <h3>Delete Profile</h3>
+              <button type="button" className="btn-delete" onClick={() => setShowDeleteModal(true)}>
+                Delete My Account
+              </button>
             </div>
           </div>
         )}
       </main>
+
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteMyAccount}
+        isProcessing={deleteProcessing}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        ariaLabel="Delete account confirmation"
+      />
     </div>
   );
 };

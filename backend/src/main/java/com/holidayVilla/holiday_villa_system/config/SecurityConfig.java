@@ -64,6 +64,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/reviews").hasRole("GUEST")
                 .requestMatchers(HttpMethod.PUT, "/api/reviews/**").hasRole("GUEST")
                 .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").hasRole("GUEST")
+                // Staff read-only access to key admin data
+                .requestMatchers(HttpMethod.GET, "/api/admin/bookings").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.GET, "/api/admin/guests").hasAnyRole("ADMIN", "STAFF")
                 // Admin only
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Staff
@@ -71,7 +74,7 @@ public class SecurityConfig {
                 // Guest booking endpoints
                 .requestMatchers("/api/bookings/**").hasRole("GUEST")
                 // Guest self-service
-                .requestMatchers(HttpMethod.DELETE, "/api/users/me").hasRole("GUEST")
+                .requestMatchers(HttpMethod.DELETE, "/api/users/me").hasAnyRole("GUEST", "STAFF")
                 // Guest payment endpoints
                 .requestMatchers(HttpMethod.POST, "/api/payments/pay").hasRole("GUEST")
                 .requestMatchers(HttpMethod.GET, "/api/payments/my").hasRole("GUEST")
