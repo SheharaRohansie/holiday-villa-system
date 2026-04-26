@@ -35,3 +35,5 @@ build/
 backend/src/main/resources/application.properties
 backend/src/main/resources/application-dev.properties
 
+.env
+
