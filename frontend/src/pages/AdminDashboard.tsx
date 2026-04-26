@@ -12,11 +12,12 @@ import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import Toast from '../components/Toast';
 import AdminReviews from './AdminReviews';
 import RevenueDashboard from './RevenueDashboard';
+import MlPredictionPage from './MlPredictionPage';
 import '../styles/Dashboard.css';
 import '../styles/Villa.css';
 import '../styles/Booking.css';
 
-type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'promotions' | 'add-promotion' | 'edit-promotion' | 'reviews';
+type ActiveTab = 'overview' | 'staff' | 'guests' | 'create-staff' | 'profile' | 'villas' | 'add-villa' | 'edit-villa' | 'bookings' | 'revenue' | 'prediction' | 'promotions' | 'add-promotion' | 'edit-promotion' | 'reviews';
 
 const emptyVillaForm = (): VillaRequest => ({
   name: '',
@@ -623,6 +624,7 @@ const AdminDashboard: React.FC = () => {
             { key: 'create-staff', icon: '➕', label: 'Create Staff' },
             { key: 'reviews', icon: '⭐', label: 'Review Management' },
             { key: 'revenue', icon: '💰', label: 'Revenue Analytics' },
+            { key: 'prediction', icon: '🧠', label: 'Prediction' },
             { key: 'profile', icon: '⚙️', label: 'My Profile' },
           ] as { key: ActiveTab; icon: string; label: string }[]).map(item => (
             <button
@@ -997,6 +999,11 @@ const AdminDashboard: React.FC = () => {
         {/* REVENUE ANALYTICS */}
         {activeTab === 'revenue' && (
           <RevenueDashboard />
+        )}
+
+        {/* PREDICTION */}
+        {activeTab === 'prediction' && (
+          <MlPredictionPage />
         )}
         {activeTab === 'profile' && (
           <div className="tab-content">
